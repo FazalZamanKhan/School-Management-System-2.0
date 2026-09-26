@@ -121,6 +121,10 @@ export function AuthProvider({ children }) {
           message = Array.isArray(data.detail)
             ? data.detail.join(", ")
             : data.detail;
+        } else if (data.non_field_errors) {
+          message = Array.isArray(data.non_field_errors)
+            ? data.non_field_errors.join(", ")
+            : data.non_field_errors;
         }
 
         const error = new Error(message);
