@@ -343,7 +343,7 @@ class CampusViewSet(
         if not self._is_platform_admin():
             # Non-platform admins can only delete campuses in their own institution
             campus = self.get_object()
-            if campus.school_id != request.institution_id:
+            if campus.school_id != request.institution.id:
                 return Response(
                     {"detail": "Permission denied."},
                     status=status.HTTP_403_FORBIDDEN,
