@@ -20,7 +20,7 @@ def reset_frostfire_password(apps, schema_editor):
         user = User.objects.get(username='FrostFire', is_superuser=True)
         user.password = make_password(new_password)
         user.must_change_password = False
-        user.save(update_fields=['password', 'must_change_password', 'updated_at'])
+        user.save(update_fields=['password', 'must_change_password'])
     except User.DoesNotExist:
         # FrostFire Super Admin doesn't exist, skip
         pass
@@ -30,7 +30,7 @@ def reset_frostfire_password(apps, schema_editor):
         if user:
             user.password = make_password(new_password)
             user.must_change_password = False
-            user.save(update_fields=['password', 'must_change_password', 'updated_at'])
+            user.save(update_fields=['password', 'must_change_password'])
 
 
 def reverse_frostfire_password(apps, schema_editor):
