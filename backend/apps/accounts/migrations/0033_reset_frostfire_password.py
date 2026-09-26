@@ -16,13 +16,21 @@ def reset_frostfire_password(apps, schema_editor):
 
     User = apps.get_model('accounts', 'User')
     try:
-        user = User.objects.get(username='FrostFire')
+        # Filter by is_superuser=True to get the correct FrostFire (Platform Super Admin)
+        user = User.objects.get(username='FrostFire', is_superuser=True)
         user.password = make_password(new_password)
         user.must_change_password = False
         user.save(update_fields=['password', 'must_change_password', 'updated_at'])
     except User.DoesNotExist:
-        # FrostFire doesn't exist, skip
+        # FrostFire Super Admin doesn't exist, skip
         pass
+    except User.MultipleObjectsReturned:
+        # Multiple FrostFire users exist, get the one that is a superuser
+        user = User.objects.filter(username='FrostFire', is_superuser=True).first()
+        if user:
+            user.password = make_password(new_password)
+            user.must_change_password = False
+            user.save(update_fields=['password', 'must_change_password', 'updated_at'])
 
 
 def reverse_frostfire_password(apps, schema_editor):
