@@ -21,7 +21,12 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from apps.accounts.models import Role, StaffProfile
+from apps.accounts.models import (
+    InstitutionMembership,
+    Role,
+    RoleAssignment,
+    StaffProfile,
+)
 from apps.exams.models import Exam, ExamSubject, StudentResult
 from apps.finance.models import FeeCategory, Invoice
 from apps.schools.models import (
@@ -42,6 +47,14 @@ from .test_access import make_user
 def _make_campus_admin(username, campus, employee_number):
     """A CAMPUS_ADMIN manager whose staff profile pins them to one campus."""
     user = make_user(username, Role.CAMPUS_ADMIN, campus.school)
+    membership = InstitutionMembership.objects.get(
+        user=user, institution=campus.school
+    )
+    RoleAssignment.objects.create(
+        membership=membership,
+        role=Role.CAMPUS_ADMIN,
+        campus=campus,
+    )
     StaffProfile.objects.create(
         user=user,
         employee_number=employee_number,
