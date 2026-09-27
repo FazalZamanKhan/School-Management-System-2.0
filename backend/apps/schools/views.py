@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework import serializers
 from django.db import transaction
+from django.db.models.deletion import ProtectedError
 from django.shortcuts import get_object_or_404
 from datetime import date
 
@@ -356,7 +357,13 @@ class CampusViewSet(
         else:
             campus = self.get_object()
 
-        campus.delete()
+        try:
+            campus.delete()
+        except ProtectedError:
+            return Response(
+                {"detail": "Cannot delete campus: related records exist."},
+                status=status.HTTP_409_CONFLICT,
+            )
         return Response(
             {"detail": "Campus deleted successfully."},
             status=status.HTTP_200_OK,
