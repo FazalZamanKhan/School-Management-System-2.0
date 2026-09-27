@@ -192,11 +192,11 @@ class CampusViewSet(
         # Check if admin data is provided in the request
         admin_data = self.request.data.get("admin", {})
 
-        serializer.save(school=self._resolve_school())
+        campus = serializer.save(school=self._resolve_school())
 
         # If admin data is provided, create the admin user linked to the school
         if admin_data:
-            admin_user, admin_password = self._create_admin_user(serializer.validated_data, admin_data)
+            admin_user, admin_password = self._create_admin_user(serializer.validated_data, admin_data, campus)
             # Store admin credentials in serializer context for response
             serializer.context["admin_credentials"] = {
                 "username": admin_user.username,
@@ -205,7 +205,7 @@ class CampusViewSet(
                 "position": admin_data.get("position", "").strip().lower(),
             }
 
-    def _create_admin_user(self, validated_data, admin_data):
+    def _create_admin_user(self, validated_data, admin_data, campus=None):
         """Create a user account and assign Principal/Vice Principal/Campus Admin role linked to the campus.
 
         Username and password are optional - they will be auto-generated if not provided.
@@ -248,6 +248,10 @@ class CampusViewSet(
                 "vice_principal": "vp",
                 "campus_admin": "cadmin",
             }
+            if campus is None:
+                raise ValidationError(
+                    {"admin": "Campus is required when the username is auto-generated."}
+                )
             username = f"{role_prefix[position]}-{campus.name.lower().replace(' ', '-')}"
 
         # Password is optional - will be auto-generated if not provided
@@ -259,7 +263,8 @@ class CampusViewSet(
 
         try:
             with transaction.atomic():
-                campus = self.get_object()
+                if campus is None:
+                    campus = self.get_object()
                 school = campus.school
 
                 user, generated_username, generated_password = create_user_with_username(
