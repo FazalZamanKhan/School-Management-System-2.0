@@ -109,10 +109,20 @@ export function AuthProvider({ children }) {
         }),
       });
 
-      const data = await readJson(
-        response,
-        "Unable to sign in."
-      );
+      let data;
+      try {
+        data = await readJson(
+          response,
+          "Unable to sign in."
+        );
+      } catch {
+        // readJson threw (empty/non-JSON response) — surface a clear message
+        const err = new Error(
+          "Unable to sign in. The server returned an unexpected response. " +
+            "Check that the backend API is running and reachable."
+        );
+        throw err;
+      }
 
       if (!response.ok) {
         let message = "Unable to sign in.";
@@ -125,15 +135,18 @@ export function AuthProvider({ children }) {
           message = Array.isArray(data.non_field_errors)
             ? data.non_field_errors.join(", ")
             : data.non_field_errors;
+        } else if (data.code) {
+          // Handle DRF numeric error codes gracefully
+          message = String(data.code);
         }
 
-        const error = new Error(message);
+        const err = new Error(message);
 
         if (data.otp_required) {
-          error.otpRequired = true;
+          err.otpRequired = true;
         }
 
-        throw error;
+        throw err;
       }
 
       setUser(data);
