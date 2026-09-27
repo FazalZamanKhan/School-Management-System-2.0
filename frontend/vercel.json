@@ -1,4 +1,9 @@
 {
+  "buildCommand": "npm install && npm run build && ls -la dist",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "vite",
+  "outputDirectory": "dist",
   "rewrites": [
     {
       "source": "/api/:path(.*)",
