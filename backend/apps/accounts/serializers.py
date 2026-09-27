@@ -721,15 +721,36 @@ class LoginSerializer(serializers.Serializer):
         else:
             # Unscoped login (platform root / localhost, no school_code): refuse
             # ambiguity. A username shared by several schools must be logged in
-            # with its school_code.
+            # with its school_code — EXCEPT for Platform Super Admin accounts,
+            # which authenticate globally.
             candidate_count = login_candidate_count(identifier)
-            if candidate_count == 0:
-                user = None
-            elif candidate_count > 1:
-                raise serializers.ValidationError(
-                    "This username or email is shared by multiple accounts in "
-                    "different schools. Provide your school_code to log in."
-                )
+
+            if candidate_count > 1:
+                # Check if there's a Platform Super Admin with this username
+                # who should authenticate globally without school_code
+                super_user = User.objects.filter(
+                    username=identifier, is_superuser=True
+                ).first()
+
+                if super_user is not None:
+                    # Platform Super Admin found — attempt authentication globally
+                    # (will check password; succeeds only with correct password)
+                    user = authenticate(
+                        request=request,
+                        username=identifier,
+                        password=attrs.get("password"),
+                    )
+                    if user is None:
+                        # Super Admin exists but password is incorrect
+                        raise serializers.ValidationError(
+                            "Invalid credentials."
+                        )
+                else:
+                    # No Super Admin with this username: shared username error
+                    raise serializers.ValidationError(
+                        "This username or email is shared by multiple accounts in "
+                        "different schools. Provide your school_code to log in."
+                    )
             else:
                 user = authenticate(
                     request=request,
