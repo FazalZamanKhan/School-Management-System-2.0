@@ -21,6 +21,7 @@ import {
   StatusBadge,
 } from "./ui";
 import { apiFetch, authHeaders } from "../api";
+import { useSchool } from "../schoolContext";
 import { formatDate } from "./format";
 
 const API_URL = "/api/schools/campuses/";
@@ -45,6 +46,7 @@ const emptyForm = {
 
 export default function CampusesPage() {
   const { rows, count, loading, error, refresh } = useApiList(API_URL);
+  const { currentSchool, modules } = useSchool();
 
   const [schools, setSchools] = useState([]);
   const [selectedSchool, setSelectedSchool] = useState("");
@@ -69,30 +71,56 @@ export default function CampusesPage() {
     school: firstSchoolId ? String(firstSchoolId) : "",
   });
 
+  // School dropdown for the campus form.
+  //
+  // Platform admins (superuser OR super_admin role — the same rule as the
+  // backend's IsPlatformAdmin) may create campuses in ANY school, so they load
+  // the full tenant list. Every other role is scoped to a single active school
+  // and the Campus API ignores the `school` field for them anyway, so we seed
+  // the dropdown from the current school instead. This avoids firing a
+  // guaranteed 403 against the platform-only /api/schools/tenants/ endpoint
+  // (which the backend correctly denies for non-platform users) during normal
+  // page use.
   useEffect(() => {
-    apiFetch(TENANTS_URL)
-      .then((data) => {
-        const list = (data.tenants || []).map((t) => ({
-          id: t.id,
-          name: t.name,
-        }));
-        setSchools(list);
-        if (list.length === 1) {
-          setForm((f) => (f.school ? f : { ...f, school: String(list[0].id) }));
-        }
-      })
-      .catch(() => {
-        apiFetch(SCHOOLS_URL)
-          .then((rowsData) => {
-            if (Array.isArray(rowsData) && rowsData.length) {
-              const list = rowsData.map((s) => ({ id: s.id, name: s.name }));
-              setSchools(list);
-              setForm((f) => (f.school ? f : { ...f, school: String(list[0].id) }));
-            }
-          })
-          .catch(() => {});
-      });
-  }, []);
+    if (modules.isPlatformAdmin) {
+      let cancelled = false;
+
+      apiFetch(TENANTS_URL)
+        .then((data) => {
+          if (cancelled) return;
+          const list = (data.tenants || []).map((t) => ({
+            id: t.id,
+            name: t.name,
+          }));
+          setSchools(list);
+          if (list.length === 1) {
+            setForm((f) => (f.school ? f : { ...f, school: String(list[0].id) }));
+          }
+        })
+        .catch(() => {
+          if (cancelled) return;
+          apiFetch(SCHOOLS_URL)
+            .then((rowsData) => {
+              if (Array.isArray(rowsData) && rowsData.length) {
+                const list = rowsData.map((s) => ({ id: s.id, name: s.name }));
+                setSchools(list);
+                setForm((f) => (f.school ? f : { ...f, school: String(list[0].id) }));
+              }
+            })
+            .catch(() => {});
+        });
+
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (currentSchool?.id) {
+      const list = [{ id: currentSchool.id, name: currentSchool.name }];
+      setSchools(list);
+      setForm((f) => (f.school ? f : { ...f, school: String(list[0].id) }));
+    }
+  }, [currentSchool, modules.isPlatformAdmin]);
 
   const toggleForm = () => {
     const opening = !showForm;
