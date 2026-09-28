@@ -3,7 +3,7 @@ import os
 from django.core.exceptions import ImproperlyConfigured
 
 from .base import *  # noqa: F401,F403
-from .base import CSRF_COOKIE_SAMESITE, MIDDLEWARE
+from .base import CSRF_COOKIE_SAMESITE, MIDDLEWARE, SESSION_COOKIE_SAMESITE
 
 DEBUG = False
 
@@ -65,7 +65,10 @@ SESSION_COOKIE_HTTPONLY = True
 # The frontend reads the csrf token from document.cookie and sends
 # it back as the X-CSRFToken header, so it must not be HttpOnly.
 CSRF_COOKIE_HTTPONLY = False
-CSRF_COOKIE_SAMESITE = CSRF_COOKIE_SAMESITE
+# Cross-site credentialed requests from the Vercel frontend require
+# SameSite=None; both cookies are already Secure=True in production.
+CSRF_COOKIE_SAMESITE = os.environ.get("CSRF_COOKIE_SAMESITE", "None")
+SESSION_COOKIE_SAMESITE = os.environ.get("SESSION_COOKIE_SAMESITE", "None")
 
 SECURE_PROXY_SSL_HEADER = (
     "HTTP_X_FORWARDED_PROTO",

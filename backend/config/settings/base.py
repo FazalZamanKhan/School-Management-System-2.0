@@ -272,8 +272,32 @@ SPECTACULAR_SETTINGS = {
     ],
 }
 
-CORS_ALLOW_CREDENTIALS = True
-CSRF_COOKIE_SAMESITE = "Lax"
+
+def _csv_env(name):
+    return [v.strip() for v in os.environ.get(name, "").split(",") if v.strip()]
+
+
+def _bool_env(name, default="1"):
+    return os.environ.get(name, default).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+CORS_ALLOW_CREDENTIALS = _bool_env("CORS_ALLOW_CREDENTIALS")
+# Must never be "*": the frontend sends credentials, which browsers reject
+# when the response origin is a wildcard.
+CORS_ALLOWED_ORIGINS = _csv_env("CORS_ALLOWED_ORIGINS") or [
+    "https://perfect-foundation-sms.vercel.app",
+    "https://perfect-foundation-api.vercel.app",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+CSRF_COOKIE_SAMESITE = os.environ.get("CSRF_COOKIE_SAMESITE", "Lax")
+SESSION_COOKIE_SAMESITE = os.environ.get("SESSION_COOKIE_SAMESITE", "Lax")
 CSRF_COOKIE_SECURE = False
 CSRF_COOKIE_HTTPONLY = False
 
