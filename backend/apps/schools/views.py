@@ -1,3 +1,5 @@
+import logging
+
 from django.db.models import Count, Q
 from rest_framework import generics, status, viewsets
 from rest_framework.views import APIView
@@ -13,6 +15,8 @@ from django.db import transaction
 from django.db.models.deletion import ProtectedError
 from django.shortcuts import get_object_or_404
 from datetime import date
+
+logger = logging.getLogger(__name__)
 
 from apps.accounts.access import apply_campus_scope, assert_campus_allowed, institution_scope
 from apps.accounts.permissions import HasActiveInstitution, IsAdminOrReadOnly, IsSuperAdmin
@@ -356,6 +360,12 @@ class CampusViewSet(
                 )
         else:
             campus = self.get_object()
+
+        logger.info(
+            "Campus delete attempt: actor_role=%s campus_id=%s",
+            request.user.primary_role if hasattr(request.user, "primary_role") else "unknown",
+            campus.id,
+        )
 
         try:
             campus.delete()
