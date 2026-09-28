@@ -11,6 +11,9 @@
 # Audit: Records 'institution_switched' action
 # Note: Switching does NOT modify school activation status
 
+import secrets
+import string
+
 from django.contrib.auth import login as django_login
 from django.contrib.auth import logout as django_logout
 from django.contrib.auth.tokens import default_token_generator
@@ -20,7 +23,7 @@ from django.core.exceptions import (
     PermissionDenied as DjangoPermissionDenied,
     ValidationError as DjangoValidationError,
 )
-from django.db import IntegrityError, models
+from django.db import IntegrityError, models, transaction
 from django.db.models import Q
 from django.http import JsonResponse
 from django.utils import timezone
@@ -947,6 +950,330 @@ class PasswordChangeView(APIView):
         )
 
         return Response({"detail": "Password has been changed."})
+
+
+# --- Shared authorization + helpers for admin account actions ----------------
+# Role tiers are grounded in apps.accounts.models.Role. NOTE: access.is_global()
+# / access.GLOBAL_ROLES is deliberately NOT used here, because GLOBAL_ROLES
+# includes institution-scoped roles (admin, org_admin, head_office, academic).
+# Reusing it would silently grant cross-institution access on these endpoints.
+PLATFORM_ACCOUNT_ROLES = [Role.SUPER_ADMIN]
+INSTITUTION_ACCOUNT_ROLES = [
+    Role.ADMIN,
+    Role.ORG_ADMIN,
+    Role.HEAD_OFFICE,
+    Role.ACADEMIC,
+]
+CAMPUS_ACCOUNT_ROLES = [Role.PRINCIPAL, Role.VICE_PRINCIPAL, Role.CAMPUS_ADMIN]
+ACCOUNT_ADMIN_ROLES = (
+    PLATFORM_ACCOUNT_ROLES + INSTITUTION_ACCOUNT_ROLES + CAMPUS_ACCOUNT_ROLES
+)
+
+TEMP_PASSWORD_LENGTH = 16
+TEMP_PASSWORD_ALPHABET = string.ascii_letters + string.digits + "!@#$%^&*"
+DUPLICATE_USERNAME_DETAIL = (
+    "A user with that username already exists in this institution."
+)
+
+
+def _generate_temporary_password():
+    """Return a cryptographically random temporary password."""
+    return "".join(
+        secrets.choice(TEMP_PASSWORD_ALPHABET)
+        for _ in range(TEMP_PASSWORD_LENGTH)
+    )
+
+
+def _target_campus_id(target_user):
+    """Campus of the target account, or None when it has no staff profile.
+
+    ``User`` has no ``primary_campus``; the campus lives on the OneToOne
+    ``StaffProfile``. ``StaffProfile.objects`` is a soft-delete manager, so a
+    soft-deleted profile also yields None (and is therefore denied).
+    """
+    profile = StaffProfile.objects.filter(user=target_user).first()
+    return profile.primary_campus_id if profile else None
+
+
+def _invalidate_user_sessions(user):
+    """Invalidate every recorded session belonging to ``user``.
+
+    The project uses the default database session backend, whose ``Session``
+    rows carry no authenticated-user column, so rows can only be located
+    through the ``UserSession`` registry this project maintains. Any session
+    missing from that registry is still rejected on its next request:
+    ``set_password`` changes ``User.get_session_auth_hash()`` and
+    ``django.contrib.auth`` flushes sessions whose ``_auth_user_hash`` no
+    longer matches. This avoids the full-table ``Session.objects.all()`` scan.
+    """
+    session_keys = list(
+        UserSession.objects.filter(user=user).values_list("session_key", flat=True)
+    )
+    if session_keys:
+        Session.objects.filter(session_key__in=session_keys).delete()
+    UserSession.objects.filter(user=user).delete()
+
+
+def _deliver_temporary_password(target, temporary_password):
+    """Hand the temporary password to the target over the existing mail path.
+
+    SECURITY/PRODUCT TRADEOFF (unresolved, requires a product decision):
+    this reuses the repository's existing ``send_mail`` path, so no new SMS
+    or mail provider is introduced. However the repository's *self-service*
+    flow already sends a time-limited, single-use token link via
+    PasswordResetRequestView, which is strictly stronger than a long-lived
+    plaintext credential mailed to the user. Switching to the token-link flow
+    would change this endpoint's contract, so it is left as an explicit open
+    question rather than changed unilaterally.
+
+    Consequences of the current choice:
+      * The plaintext transits in a mail body, where it can be archived in
+        the mailbox and has no expiry or single-use guarantee.
+      * Delivery happens AFTER commit, so a mail failure never rolls back an
+        already-committed reset; the boolean return value is the only signal
+        and must be surfaced to the operator.
+
+    The plaintext is never returned in the API response and never written to
+    the audit log.
+
+    Returns True when a message was handed to the mail backend.
+    """
+    if not target.email:
+        return False
+    send_mail(
+        subject="Your account password was reset",
+        message=(
+            "An administrator reset the password for your account.\n\n"
+            f"Temporary password: {temporary_password}\n\n"
+            "You must change it the next time you sign in."
+        ),
+        from_email=None,
+        recipient_list=[target.email],
+    )
+    return True
+
+
+def _resolve_admin_target(request, user_id):
+    """Authorize ``request`` to administer account ``user_id``.
+
+    Returns ``(target, None)`` when permitted, otherwise ``(None, response)``.
+
+    The role gate runs BEFORE the lookup, so an unauthorized caller can never
+    distinguish a missing account from a foreign one (both yield 403). A
+    permitted caller receives 404 for a genuinely missing account, preserving
+    the pre-existing contract.
+    """
+    actor = request.user
+
+    if not actor.has_any_role(ACCOUNT_ADMIN_ROLES):
+        return None, Response(
+            {"detail": "Permission denied: insufficient privileges."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    try:
+        target = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        return None, Response(
+            {"detail": "User not found."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    # Platform Super Admins are deliberately not bound to an institution:
+    # User.institution help_text is "Null for super_admin users", so
+    # requiring an active institution here would lock them out entirely.
+    if actor.is_superuser or actor.has_any_role(PLATFORM_ACCOUNT_ROLES):
+        return target, None
+
+    institution = get_institution(request)
+    if institution is None:
+        return None, Response(
+            {"detail": "No active institution selected."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    # Institution membership is the scoping relation already used by
+    # AdminUnlockAccountView (memberships__institution / memberships__status).
+    if not target.get_active_memberships().filter(institution=institution).exists():
+        return None, Response(
+            {
+                "detail": (
+                    "Permission denied: target user is not in your institution."
+                )
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    if actor.has_any_role(CAMPUS_ACCOUNT_ROLES):
+        # Scope against the ACTOR's institution, never the target's.
+        allowed_campus_ids = user_allowed_campus_ids(
+            actor,
+            institution=institution,
+        )
+        campus_id = _target_campus_id(target)
+        if campus_id is None or campus_id not in allowed_campus_ids:
+            return None, Response(
+                {
+                    "detail": (
+                        "Permission denied: target user is not in your "
+                        "authorized campus."
+                    )
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+    return target, None
+
+
+class AdminPasswordResetView(APIView):
+    """Administrator password reset for authorized accounts.
+
+    Institution-scoped roles may reset passwords for accounts inside their
+    active institution. Campus-scoped roles (Principal, Vice Principal,
+    Campus Admin) are further limited to the campuses they are explicitly
+    assigned to. The platform Super Admin is not bound to an institution.
+
+    Sets ``must_change_password = True`` so the target must establish a new
+    credential on next login, consistent with the self-service flow, and
+    invalidates every recorded session belonging to the target.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, user_id):
+        target, error = _resolve_admin_target(request, user_id)
+        if error is not None:
+            return error
+
+        actor = request.user
+        temporary_password = _generate_temporary_password()
+        superseded_hash = target.password
+
+        with transaction.atomic():
+            # Preserve the superseded hash, mirroring PasswordChangeView.
+            PasswordHistory.objects.create(
+                user=target,
+                password_hash=superseded_hash,
+            )
+            for stale in PasswordHistory.objects.filter(user=target).order_by(
+                "-created_at"
+            )[5:]:
+                stale.delete()
+
+            target.set_password(temporary_password)
+            target.password_changed_at = timezone.now()
+            target.must_change_password = True
+            target.save(
+                update_fields=[
+                    "password",
+                    "password_changed_at",
+                    "must_change_password",
+                ]
+            )
+
+            _invalidate_user_sessions(target)
+
+            # The plaintext is deliberately absent from these details.
+            record_audit(
+                request=request,
+                action="admin_password_reset",
+                details={
+                    "target_user_id": str(target.pk),
+                    "target_username": target.username,
+                    "target_institution": (
+                        str(target.institution_id)
+                        if target.institution_id
+                        else None
+                    ),
+                    "actor_role": actor.primary_role,
+                },
+            )
+
+        # Outside the transaction: SMTP I/O must not hold database locks, and
+        # a mail failure must not roll back an already-committed reset.
+        delivered = _deliver_temporary_password(target, temporary_password)
+
+        return Response(
+            {
+                "detail": "Password has been reset for the target account.",
+                "must_change_password": True,
+                "temporary_password_delivered": delivered,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class AdminUsernameChangeView(APIView):
+    """Administrator username change for authorized accounts.
+
+    Uses the same authorization rules as AdminPasswordResetView and preserves
+    the per-institution username constraint declared on User.Meta
+    (``unique_username_per_institution``).
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, user_id):
+        target, error = _resolve_admin_target(request, user_id)
+        if error is not None:
+            return error
+
+        new_username = (request.data.get("new_username") or "").strip()
+        if not new_username:
+            return Response(
+                {"detail": "New username is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Per-institution uniqueness; the database constraint is the real
+        # backstop for concurrent requests.
+        if (
+            User.objects.filter(
+                institution_id=target.institution_id,
+                username=new_username,
+            )
+            .exclude(pk=target.pk)
+            .exists()
+        ):
+            return Response(
+                {"detail": DUPLICATE_USERNAME_DETAIL},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        old_username = target.username
+        try:
+            with transaction.atomic():
+                # Inner block is a savepoint: an IntegrityError rolls back the
+                # UPDATE only and leaves the outer transaction usable.
+                with transaction.atomic():
+                    target.username = new_username
+                    target.save(update_fields=["username"])
+
+                record_audit(
+                    request=request,
+                    action="admin_username_change",
+                    details={
+                        "target_user_id": str(target.pk),
+                        "target_username": new_username,
+                        "old_username": old_username,
+                        "target_institution": (
+                            str(target.institution_id)
+                            if target.institution_id
+                            else None
+                        ),
+                        "actor_role": request.user.primary_role,
+                    },
+                )
+        except IntegrityError:
+            return Response(
+                {"detail": DUPLICATE_USERNAME_DETAIL},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            {"detail": "Username has been changed for the target account."},
+            status=status.HTTP_200_OK,
+        )
 
 
 class UserSessionSerializer(serializers.ModelSerializer):
