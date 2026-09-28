@@ -31,9 +31,8 @@ def main():
     # Check if bootstrap is explicitly enabled
     bootstrap_enabled = os.environ.get("DJANGO_BOOTSTRAP_SUPERUSER") == "1"
     
-    # Always run migrations and collectstatic
+    # Always run collectstatic
     steps = [
-        (["python", "manage.py", "migrate", "--noinput"], "Database migrations"),
         (["python", "manage.py", "collectstatic", "--noinput"], "Collect static files"),
     ]
     
