@@ -114,7 +114,22 @@ function SchoolModal({
   );
 }
 
-function SchoolDetail({ tenant, onClose, onEdit, onModules, onAccess, canAccess }) {
+function SchoolDetail({
+    tenant,
+    onClose,
+    onEdit,
+    onModules,
+    onAccess,
+    canAccess,
+    schoolAdmins,
+    schoolAdminsLoading,
+    schoolAdminsError,
+    assignSchoolAdminForm,
+    assignSchoolAdminSaving,
+    fetchSchoolAdmins,
+    handleAssignSchoolAdmin,
+    handleRemoveSchoolAdmin,
+  }) {
   useEffect(() => {
     document.body.classList.add("modal-open");
     return () => document.body.classList.remove("modal-open");
@@ -180,6 +195,73 @@ function SchoolDetail({ tenant, onClose, onEdit, onModules, onAccess, canAccess 
               <p className="hint">All modules enabled.</p>
             )}
           </div>
+
+          {/* School Administrators Section */}
+          <div className="form-section" style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+            <h4>School Administrators</h4>
+            {schoolAdminsLoading && (
+              <p style={{ fontSize: 12, color: "var(--text-muted)" }}>Loading school administrators...</p>
+            )}
+            {schoolAdminsError && (
+              <div className="state-card error" style={{ marginBottom: 12 }}>
+                {schoolAdminsError}
+              </div>
+            )}
+            {schoolAdmins && schoolAdmins.length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {schoolAdmins.map((admin) => (
+                  <div key={admin.user_id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px", background: "var(--bg-secondary)", borderRadius: 8 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600 }}>{admin.first_name} {admin.last_name}</div>
+                      <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                        {admin.username} &middot; {admin.email}
+                      </div>
+                      <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                        Role: School Admin &middot; Assigned: {new Date(admin.assigned_at).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="table-action danger"
+                      onClick={() => handleRemoveSchoolAdmin(admin.user_id)}
+                      disabled={assignSchoolAdminSaving}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 12 }}>
+                No school administrators assigned. Assign an existing user below.
+              </p>
+            )}
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
+              <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 8 }}>
+                Assign Existing User as School Administrator
+              </p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "flex-end" }}>
+                <label style={{ flex: 1, minWidth: 200 }}>
+                  User ID *
+                  <input
+                    type="number"
+                    placeholder="e.g. 42"
+                    value={assignSchoolAdminForm.user_id}
+                    onChange={(e) => setAssignSchoolAdminForm({ user_id: e.target.value })}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => handleAssignSchoolAdmin(tenant.id)}
+                  disabled={assignSchoolAdminSaving || !assignSchoolAdminForm.user_id}
+                >
+                  {assignSchoolAdminSaving ? "Assigning..." : "Assign"}
+                </button>
+              </div>
+            </div>
+          </div>
+
         </div>
         <div className="modal-footer">
           <button type="button" className="secondary-button" onClick={() => onModules(tenant)}>
@@ -220,6 +302,75 @@ export default function TenantsPage() {
 
   const [editingModules, setEditingModules] = useState(null);
   const [draftModules, setDraftModules] = useState([]);
+
+  // School admin management state
+  const [schoolAdmins, setSchoolAdmins] = useState(null);
+  const [schoolAdminsLoading, setSchoolAdminsLoading] = useState(false);
+  const [schoolAdminsError, setSchoolAdminsError] = useState("");
+  const [assignSchoolAdminForm, setAssignSchoolAdminForm] = useState({
+    user_id: "",
+  });
+  const [assignSchoolAdminSaving, setAssignSchoolAdminSaving] = useState(false);
+
+  // Fetch school admins when viewing detail
+  const fetchSchoolAdmins = async (schoolId) => {
+    setSchoolAdminsLoading(true);
+    setSchoolAdminsError("");
+    try {
+      const data = await apiFetch(`/api/schools/tenants/${schoolId}/admins/`);
+      setSchoolAdmins(data.admins || []);
+    } catch (err) {
+      setSchoolAdminsError(err.message);
+    } finally {
+      setSchoolAdminsLoading(false);
+    }
+  };
+
+  // School admin assignment/removal handlers
+  const handleAssignSchoolAdmin = async (schoolId) => {
+    if (!assignSchoolAdminForm.user_id) return;
+    setAssignSchoolAdminSaving(true);
+    setError("");
+    try {
+      await apiFetch(`/api/schools/tenants/${schoolId}/assign_admin/`, {
+        method: "POST",
+        headers: authHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          user_id: parseInt(assignSchoolAdminForm.user_id, 10),
+        }),
+      });
+      setAssignSchoolAdminForm({ user_id: "" });
+      await fetchSchoolAdmins(schoolId);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setAssignSchoolAdminSaving(false);
+    }
+  };
+
+  const handleRemoveSchoolAdmin = async (userId) => {
+    const confirmed = window.confirm(
+      `Remove this School Admin from the school?`
+    );
+    if (!confirmed) return;
+    setAssignSchoolAdminSaving(true);
+    setError("");
+    try {
+      // We need to know the school ID - get it from detail
+      const schoolId = detail?.id;
+      if (!schoolId) throw new Error("School context lost");
+      await apiFetch(`/api/schools/tenants/${schoolId}/remove_admin/`, {
+        method: "POST",
+        headers: authHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ user_id: userId }),
+      });
+      await fetchSchoolAdmins(schoolId);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setAssignSchoolAdminSaving(false);
+    }
+  };
 
   const { switchSchool } = useSchool();
   const navigate = useNavigate();
@@ -394,6 +545,14 @@ export default function TenantsPage() {
       admin_phone: "",
     });
     setEditError("");
+  };
+
+  // Open detail view and fetch school admins
+  const openDetail = (tenant) => {
+    setEditingModules(null);
+    setEditForm(null);
+    setDetail(tenant);
+    fetchSchoolAdmins(tenant.id);
   };
 
   const accessSchool = (tenant) => {
@@ -640,6 +799,14 @@ export default function TenantsPage() {
           onModules={openModules}
           onAccess={accessSchool}
           canAccess
+          schoolAdmins={schoolAdmins}
+          schoolAdminsLoading={schoolAdminsLoading}
+          schoolAdminsError={schoolAdminsError}
+          assignSchoolAdminForm={assignSchoolAdminForm}
+          assignSchoolAdminSaving={assignSchoolAdminSaving}
+          fetchSchoolAdmins={fetchSchoolAdmins}
+          handleAssignSchoolAdmin={(schoolId) => handleAssignSchoolAdmin(schoolId)}
+          handleRemoveSchoolAdmin={handleRemoveSchoolAdmin}
         />
       )}
 
@@ -754,7 +921,7 @@ export default function TenantsPage() {
                           onClick={() => {
                             setEditingModules(null);
                             setEditForm(null);
-                            setDetail(editingModules === tenant.id ? null : tenant);
+                            openDetail(editingModules === tenant.id ? null : tenant);
                           }}
                         >
                           <Eye size={13} />

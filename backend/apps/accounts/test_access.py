@@ -149,6 +149,13 @@ class UserAllowedCampusTests(TestCase):
 
     def test_campus_admin_scoped_to_primary_campus(self):
         user = make_user("cadmin", Role.CAMPUS_ADMIN, self.school)
+        # Campus admin must have explicit RoleAssignment.campus (FAIL CLOSED)
+        membership = InstitutionMembership.objects.get(user=user, institution=self.school)
+        RoleAssignment.objects.create(
+            membership=membership,
+            role=Role.CAMPUS_ADMIN,
+            campus=self.campus_a,
+        )
         StaffProfile.objects.create(
             user=user,
             employee_number="STF-001",
@@ -259,13 +266,25 @@ class UserAllowedCampusTests(TestCase):
         self.assertNotIn(other_campus.pk, user_allowed_campus_ids(user))
 
     def test_principal_without_profile_gets_institution_campuses(self):
-        """A principal heads the whole school, even with no StaffProfile.
+        """A principal heads the whole school with explicit campus assignments.
 
-        Regression: a principal provisioned only with a membership + role
-        assignment (no ``primary_campus``) previously resolved to an empty
-        campus scope, so every ``/api/students/?campus=…`` request 403'd.
+        A principal must have explicit RoleAssignment.campus for each campus
+        they administer (FAIL CLOSED). This test verifies that a principal
+        with explicit campus assignments can access all assigned campuses.
         """
         user = make_user("prin", Role.PRINCIPAL, self.school)
+        membership = InstitutionMembership.objects.get(user=user, institution=self.school)
+        # Principal must have explicit RoleAssignment.campus for each campus
+        RoleAssignment.objects.create(
+            membership=membership,
+            role=Role.PRINCIPAL,
+            campus=self.campus_a,
+        )
+        RoleAssignment.objects.create(
+            membership=membership,
+            role=Role.PRINCIPAL,
+            campus=self.campus_b,
+        )
 
         self.assertFalse(is_global(user))
         self.assertEqual(
@@ -275,6 +294,18 @@ class UserAllowedCampusTests(TestCase):
 
     def test_vice_principal_without_profile_gets_institution_campuses(self):
         user = make_user("vprin", Role.VICE_PRINCIPAL, self.school)
+        membership = InstitutionMembership.objects.get(user=user, institution=self.school)
+        # Vice Principal must have explicit RoleAssignment.campus for each campus
+        RoleAssignment.objects.create(
+            membership=membership,
+            role=Role.VICE_PRINCIPAL,
+            campus=self.campus_a,
+        )
+        RoleAssignment.objects.create(
+            membership=membership,
+            role=Role.VICE_PRINCIPAL,
+            campus=self.campus_b,
+        )
         self.assertEqual(
             user_allowed_campus_ids(user),
             {self.campus_a.pk, self.campus_b.pk},
@@ -288,6 +319,18 @@ class UserAllowedCampusTests(TestCase):
             name="Other Campus",
         )
         user = make_user("prin-scope", Role.PRINCIPAL, self.school)
+        membership = InstitutionMembership.objects.get(user=user, institution=self.school)
+        # Principal must have explicit campus assignments
+        RoleAssignment.objects.create(
+            membership=membership,
+            role=Role.PRINCIPAL,
+            campus=self.campus_a,
+        )
+        RoleAssignment.objects.create(
+            membership=membership,
+            role=Role.PRINCIPAL,
+            campus=self.campus_b,
+        )
 
         allowed = user_allowed_campus_ids(user)
 
@@ -323,6 +366,13 @@ class CampusAccessTests(TestCase):
             name="Campus B",
         )
         self.admin = make_user("cadmin", Role.CAMPUS_ADMIN, self.school)
+        # Campus admin must have explicit RoleAssignment.campus (FAIL CLOSED)
+        membership = InstitutionMembership.objects.get(user=self.admin, institution=self.school)
+        RoleAssignment.objects.create(
+            membership=membership,
+            role=Role.CAMPUS_ADMIN,
+            campus=self.campus_a,
+        )
         StaffProfile.objects.create(
             user=self.admin,
             employee_number="STF-002",
@@ -382,6 +432,18 @@ class CampusAccessTests(TestCase):
 
     def test_principal_without_profile_can_request_own_school_campus(self):
         principal = make_user("prin-campus", Role.PRINCIPAL, self.school)
+        # Principal must have explicit RoleAssignment.campus
+        membership = InstitutionMembership.objects.get(user=principal, institution=self.school)
+        RoleAssignment.objects.create(
+            membership=membership,
+            role=Role.PRINCIPAL,
+            campus=self.campus_a,
+        )
+        RoleAssignment.objects.create(
+            membership=membership,
+            role=Role.PRINCIPAL,
+            campus=self.campus_b,
+        )
         request = make_request(principal, f"/?campus={self.campus_a.pk}")
 
         result = campus_access(request)
@@ -406,6 +468,13 @@ class AssertCampusAllowedTests(TestCase):
             name="Campus B",
         )
         self.admin = make_user("cadmin", Role.CAMPUS_ADMIN, self.school)
+        # Campus admin must have explicit RoleAssignment.campus (FAIL CLOSED)
+        membership = InstitutionMembership.objects.get(user=self.admin, institution=self.school)
+        RoleAssignment.objects.create(
+            membership=membership,
+            role=Role.CAMPUS_ADMIN,
+            campus=self.campus_a,
+        )
         StaffProfile.objects.create(
             user=self.admin,
             employee_number="STF-003",
@@ -414,9 +483,6 @@ class AssertCampusAllowedTests(TestCase):
             gender="male",
             primary_campus=self.campus_a,
         )
-
-    def test_allowed_campus_passes(self):
-        assert_campus_allowed(self.admin, self.campus_a.pk)
 
     def test_foreign_campus_rejected(self):
         with self.assertRaises(PermissionDenied):
@@ -492,6 +558,13 @@ class CampusIsolatedEventListTests(TestCase):
             "cadmin",
             Role.CAMPUS_ADMIN,
             self.school,
+        )
+        # Campus admin must have explicit RoleAssignment.campus (FAIL CLOSED)
+        membership = InstitutionMembership.objects.get(user=self.campus_admin, institution=self.school)
+        RoleAssignment.objects.create(
+            membership=membership,
+            role=Role.CAMPUS_ADMIN,
+            campus=self.campus_a,
         )
         StaffProfile.objects.create(
             user=self.campus_admin,

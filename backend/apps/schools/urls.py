@@ -41,6 +41,21 @@ urlpatterns = [
         }),
         name="campus-detail",
     ),
+    path(
+        "campuses/<int:pk>/admin/",
+        CampusViewSet.as_view({"get": "admin"}),
+        name="campus-admin",
+    ),
+    path(
+        "campuses/<int:pk>/assign_admin/",
+        CampusViewSet.as_view({"post": "assign_admin"}),
+        name="campus-assign-admin",
+    ),
+    path(
+        "campuses/<int:pk>/remove_admin/",
+        CampusViewSet.as_view({"post": "remove_admin"}),
+        name="campus-remove-admin",
+    ),
     path("units/", AcademicUnitListView.as_view(), name="academic-unit-list"),
     path("classes/", ClassListView.as_view(), name="class-list"),
     path("sections/", SectionListView.as_view(), name="section-list"),
@@ -58,4 +73,19 @@ urlpatterns = [
     path("modules/current/", CurrentModulesView.as_view(), name="current-modules"),
     path("tenants/", TenantListCreateView.as_view(), name="tenant-list"),
     path("tenants/<int:pk>/", TenantDetailView.as_view(), name="tenant-detail"),
+    path(
+        "tenants/<int:pk>/admins/",
+        SchoolViewSet.as_view({"get": "admins"}),
+        name="tenant-admins",
+    ),
+    path(
+        "tenants/<int:pk>/assign_admin/",
+        SchoolViewSet.as_view({"post": "assign_admin"}),
+        name="tenant-assign-admin",
+    ),
+    path(
+        "tenants/<int:pk>/remove_admin/",
+        SchoolViewSet.as_view({"post": "remove_admin"}),
+        name="tenant-remove-admin",
+    ),
 ]

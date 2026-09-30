@@ -554,6 +554,12 @@ class RoleAssignment(models.Model):
                 name="unique_vice_principal_per_campus",
                 condition=models.Q(role="vice_principal", campus__isnull=False),
             ),
+            # One Campus Admin per campus
+            models.UniqueConstraint(
+                fields=["campus", "role"],
+                name="unique_campus_admin_per_campus",
+                condition=models.Q(role="campus_admin", campus__isnull=False),
+            ),
         ]
 
     def clean(self):

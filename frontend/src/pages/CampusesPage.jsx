@@ -61,6 +61,30 @@ export default function CampusesPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [createdAdmin, setCreatedAdmin] = useState(null);
 
+  // Campus admin management state
+  const [campusAdmin, setCampusAdmin] = useState(null);
+  const [campusAdminLoading, setCampusAdminLoading] = useState(false);
+  const [campusAdminError, setCampusAdminError] = useState("");
+  const [assignAdminForm, setAssignAdminForm] = useState({
+    user_id: "",
+    role: "campus_admin",
+  });
+  const [assignAdminSaving, setAssignAdminSaving] = useState(false);
+
+  // Fetch campus admin when editing
+  const fetchCampusAdmin = async (campusId) => {
+    setCampusAdminLoading(true);
+    setCampusAdminError("");
+    try {
+      const data = await apiFetch(`${API_URL}${campusId}/admin/`);
+      setCampusAdmin(data.admins || []);
+    } catch (err) {
+      setCampusAdminError(err.message);
+    } finally {
+      setCampusAdminLoading(false);
+    }
+  };
+
   const currentParams = () =>
     new URLSearchParams(
       selectedSchool ? { school: selectedSchool } : {}
@@ -143,6 +167,9 @@ export default function CampusesPage() {
     setEditing(campus);
     setFormError("");
     setCreatedAdmin(null);
+    setCampusAdmin(null);
+    setCampusAdminError("");
+    setAssignAdminForm({ user_id: "", role: "campus_admin" });
     setForm({
       name: campus.name,
       city: campus.city || "",
@@ -150,6 +177,8 @@ export default function CampusesPage() {
       school: campus.school ? String(campus.school) : buildForm(schools.length === 1 ? schools[0].id : "").school,
     });
     setShowForm(true);
+    // Fetch existing campus admin
+    fetchCampusAdmin(campus.id);
   };
 
   const handlePasswordToggle = () => setShowPassword((v) => !v);
@@ -158,6 +187,50 @@ export default function CampusesPage() {
     navigator.clipboard.writeText(text);
     setFormError(`${label} copied to clipboard!`);
     setTimeout(() => setFormError(""), 2000);
+  };
+
+  // Campus admin assignment/removal handlers
+  const handleAssignAdmin = async () => {
+    if (!assignAdminForm.user_id) return;
+    setAssignAdminSaving(true);
+    setFormError("");
+    try {
+      await apiFetch(`${API_URL}${editing.id}/assign_admin/`, {
+        method: "POST",
+        headers: authHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          user_id: parseInt(assignAdminForm.user_id, 10),
+          role: assignAdminForm.role,
+        }),
+      });
+      setAssignAdminForm({ user_id: "", role: "campus_admin" });
+      await fetchCampusAdmin(editing.id);
+    } catch (err) {
+      setFormError(err.message);
+    } finally {
+      setAssignAdminSaving(false);
+    }
+  };
+
+  const handleRemoveAdmin = async (userId, role) => {
+    const confirmed = window.confirm(
+      `Remove this ${role.replace("_", " ")} from campus "${editing.name}"?`
+    );
+    if (!confirmed) return;
+    setAssignAdminSaving(true);
+    setFormError("");
+    try {
+      await apiFetch(`${API_URL}${editing.id}/remove_admin/`, {
+        method: "POST",
+        headers: authHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ user_id: userId, role }),
+      });
+      await fetchCampusAdmin(editing.id);
+    } catch (err) {
+      setFormError(err.message);
+    } finally {
+      setAssignAdminSaving(false);
+    }
   };
 
   const submit = (event) => {
@@ -409,7 +482,86 @@ export default function CampusesPage() {
                   />
                 </label>
               </fieldset>
-            ) : null}
+            ) : (
+              // Campus Admin Management (Edit Mode)
+              <fieldset style={{ border: 0, padding: 0, marginTop: 16, borderTop: "1px solid var(--border)" }}>
+                <legend style={{ fontSize: 13, fontWeight: 600, color: "var(--text-muted)", marginBottom: 12 }}>
+                  Campus Administrator
+                </legend>
+                {campusAdminLoading && (
+                  <p style={{ fontSize: 12, color: "var(--text-muted)" }}>Loading campus administrator...</p>
+                )}
+                {campusAdminError && (
+                  <div className="state-card error" style={{ marginBottom: 12 }}>
+                    {campusAdminError}
+                  </div>
+                )}
+                {campusAdmin && campusAdmin.length > 0 ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {campusAdmin.map((admin) => (
+                      <div key={admin.user_id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px", background: "var(--bg-secondary)", borderRadius: 8 }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 600 }}>{admin.first_name} {admin.last_name}</div>
+                          <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                            {admin.username} &middot; {admin.email}
+                          </div>
+                          <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                            Role: {admin.role_display} &middot; Assigned: {new Date(admin.assigned_at).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className="table-action danger"
+                          onClick={() => handleRemoveAdmin(admin.user_id, admin.role)}
+                          disabled={assignAdminSaving}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 12 }}>
+                    No campus administrator assigned. Assign an existing user below.
+                  </p>
+                )}
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
+                  <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 8 }}>
+                    Assign Existing User as Campus Administrator
+                  </p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "flex-end" }}>
+                    <label style={{ flex: 1, minWidth: 200 }}>
+                      User ID *
+                      <input
+                        type="number"
+                        placeholder="e.g. 42"
+                        value={assignAdminForm.user_id}
+                        onChange={(e) => setAssignAdminForm({ ...assignAdminForm, user_id: e.target.value })}
+                      />
+                    </label>
+                    <label style={{ flex: 1, minWidth: 180 }}>
+                      Role
+                      <select
+                        value={assignAdminForm.role}
+                        onChange={(e) => setAssignAdminForm({ ...assignAdminForm, role: e.target.value })}
+                      >
+                        <option value="campus_admin">Campus Admin</option>
+                        <option value="principal">Principal</option>
+                        <option value="vice_principal">Vice Principal</option>
+                      </select>
+                    </label>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={handleAssignAdmin}
+                      disabled={assignAdminSaving || !assignAdminForm.user_id}
+                    >
+                      {assignAdminSaving ? "Assigning..." : "Assign"}
+                    </button>
+                  </div>
+                </div>
+              </fieldset>
+            )}
             <button className="primary-button" disabled={saving}>
               {saving ? "Saving..." : editing ? "Update Campus" : "Save Campus"}
             </button>

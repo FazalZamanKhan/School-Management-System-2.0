@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 from apps.accounts.access import apply_campus_scope, assert_campus_allowed, institution_scope
 from apps.accounts.permissions import HasActiveInstitution, IsAdminOrReadOnly, IsSuperAdmin
+from apps.accounts.models import Role, InstitutionMembership, RoleAssignment, User
 from apps.students.models import Student, Enrollment
 from .models import (
     AcademicUnit,
@@ -99,6 +100,22 @@ class SchoolViewSet(NoPaginationMixin, viewsets.GenericViewSet, generics.ListAPI
             pk=self.request.institution.pk
         ).order_by("name")
 
+    def _is_platform_admin(self):
+        user = self.request.user
+        return bool(user.is_superuser or user.has_any_role(["super_admin"]))
+
+    def _resolve_school(self, pk):
+        """Pick the target school for admin-management actions.
+
+        Platform admins may target any tenant by URL pk (mirrors
+        TenantDetailView's cross-tenant resolution). Everyone else is locked
+        to their active institution, so a school can never manage another
+        school's admins (fail closed).
+        """
+        if self._is_platform_admin():
+            return get_object_or_404(School, pk=pk)
+        return self.get_object()
+
     @action(detail=True, methods=["post"], permission_classes=[HasActiveInstitution, IsSuperAdmin])
     def pause(self, request, pk=None):
         """Pause the school - prevents login, attendance, fees, etc."""
@@ -127,6 +144,181 @@ class SchoolViewSet(NoPaginationMixin, viewsets.GenericViewSet, generics.ListAPI
         school.unarchive()
         return Response({"detail": "School unarchived successfully."})
 
+    # =============================================================================
+    # SCHOOL ADMIN MANAGEMENT
+    # =============================================================================
+
+    class SchoolAdminSerializer(serializers.Serializer):
+        """Serializer for school admin assignment."""
+        user_id = serializers.IntegerField(help_text="ID of the user to assign as admin")
+        username = serializers.CharField(read_only=True)
+        email = serializers.CharField(read_only=True)
+
+    class SchoolAdminAssignSerializer(serializers.Serializer):
+        """Serializer for assigning an existing user as school admin."""
+        user_id = serializers.IntegerField(help_text="ID of the existing user to assign as school admin")
+
+        def validate_user_id(self, value):
+            from apps.accounts.models import User, InstitutionMembership
+            try:
+                user = User.objects.get(pk=value)
+            except User.DoesNotExist:
+                raise serializers.ValidationError("User not found.")
+
+            # Check user is active
+            if not user.is_active:
+                raise serializers.ValidationError("User is not active.")
+
+            # Check user has active membership in this school
+            school = self.context.get("school")
+            if not school:
+                raise serializers.ValidationError("School context required.")
+
+            membership = InstitutionMembership.objects.filter(
+                user=user,
+                institution=school,
+                status="active",
+            ).first()
+            if not membership:
+                raise serializers.ValidationError("User does not have an active membership in this school.")
+
+            # Check user doesn't already have ADMIN role in this school
+            from apps.accounts.models import RoleAssignment, Role
+            if RoleAssignment.objects.filter(
+                membership=membership,
+                role=Role.ADMIN,
+            ).exists():
+                raise serializers.ValidationError("User is already a school admin.")
+
+            return value
+
+    @action(detail=True, methods=["get"], permission_classes=[HasActiveInstitution, IsAdminOrReadOnly])
+    def admins(self, request, pk=None):
+        """List all school admins for this school."""
+        school = self._resolve_school(pk)
+
+        from apps.accounts.models import RoleAssignment, Role, InstitutionMembership
+
+        # Get all active memberships in this school with ADMIN role (campus=NULL)
+        admin_assignments = RoleAssignment.objects.filter(
+            membership__institution=school,
+            membership__status="active",
+            role=Role.ADMIN,
+            campus__isnull=True,
+        ).select_related("membership__user")
+
+        admins = []
+        for assignment in admin_assignments:
+            user = assignment.membership.user
+            admins.append({
+                "user_id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "is_active": user.is_active,
+                "assigned_at": assignment.created_at,
+            })
+
+        return Response({"admins": admins, "count": len(admins)})
+
+    @action(detail=True, methods=["post"], permission_classes=[HasActiveInstitution, IsAdminOrReadOnly])
+    def assign_admin(self, request, pk=None):
+        """Assign an existing user as school admin."""
+        school = self._resolve_school(pk)
+
+        serializer = self.SchoolAdminAssignSerializer(
+            data=request.data,
+            context={"school": school, "request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+
+        user_id = serializer.validated_data["user_id"]
+
+        from apps.accounts.models import User, InstitutionMembership, RoleAssignment, Role
+        from apps.accounts.models import assign_role_safely
+
+        user = User.objects.get(pk=user_id)
+        membership = InstitutionMembership.objects.get(
+            user=user,
+            institution=school,
+            status="active",
+        )
+
+        # Assign ADMIN role (school-level, campus=NULL)
+        assignment, created, note = assign_role_safely(membership, Role.ADMIN)
+
+        if not created and note:
+            return Response(
+                {"detail": note, "user_id": user.id},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        # Update denormalized institution FK if not set
+        if user.institution_id != school.id:
+            user.institution = school
+            user.save(update_fields=["institution"])
+
+        return Response({
+            "detail": "User assigned as school admin successfully.",
+            "user_id": user.id,
+            "username": user.username,
+            "email": user.email,
+        }, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"], permission_classes=[HasActiveInstitution, IsAdminOrReadOnly])
+    def remove_admin(self, request, pk=None):
+        """Remove school admin assignment."""
+        school = self._resolve_school(pk)
+
+        user_id = request.data.get("user_id")
+        if not user_id:
+            return Response(
+                {"detail": "user_id is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from apps.accounts.models import User, InstitutionMembership, RoleAssignment, Role
+
+        try:
+            user = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "User not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        membership = InstitutionMembership.objects.filter(
+            user=user,
+            institution=school,
+            status="active",
+        ).first()
+
+        if not membership:
+            return Response(
+                {"detail": "User does not have an active membership in this school."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        assignment = RoleAssignment.objects.filter(
+            membership=membership,
+            role=Role.ADMIN,
+            campus__isnull=True,
+        ).first()
+
+        if not assignment:
+            return Response(
+                {"detail": "User is not a school admin."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Prevent removing the last admin? Not required per spec (0..N allowed)
+        # But we should prevent self-removal if only one admin? Let's not enforce - let the admin decide.
+
+        assignment.delete()
+
+        return Response({"detail": "School admin removed successfully."})
+
 
 class CampusViewSet(
     NoPaginationMixin,
@@ -142,6 +334,18 @@ class CampusViewSet(
     def _is_platform_admin(self):
         user = self.request.user
         return bool(user.is_superuser or user.has_any_role(["super_admin"]))
+
+    def _resolve_campus(self, pk):
+        """Pick the target campus for admin-management actions.
+
+        Platform admins may target any campus by URL pk (cross-tenant
+        management regardless of the active institution). Everyone else stays
+        locked to their active institution via the scoped queryset (fail
+        closed).
+        """
+        if self._is_platform_admin():
+            return get_object_or_404(Campus, pk=pk)
+        return self.get_object()
 
     def get_queryset(self):
         if self._is_platform_admin():
@@ -378,6 +582,245 @@ class CampusViewSet(
             {"detail": "Campus deleted successfully."},
             status=status.HTTP_200_OK,
         )
+
+    # =============================================================================
+    # CAMPUS ADMIN MANAGEMENT
+    # =============================================================================
+
+    class CampusAdminSerializer(serializers.Serializer):
+        """Serializer for campus admin."""
+        user_id = serializers.IntegerField(read_only=True)
+        username = serializers.CharField(read_only=True)
+        email = serializers.CharField(read_only=True)
+        role = serializers.CharField(read_only=True)
+        role_display = serializers.CharField(read_only=True)
+        assigned_at = serializers.DateTimeField(read_only=True)
+
+    class CampusAdminAssignSerializer(serializers.Serializer):
+        """Serializer for assigning an existing user as campus admin."""
+        user_id = serializers.IntegerField(help_text="ID of the existing user to assign as campus admin")
+        role = serializers.ChoiceField(
+            choices=[("campus_admin", "Campus Admin"), ("principal", "Principal"), ("vice_principal", "Vice Principal")],
+            default="campus_admin",
+            help_text="Role to assign (default: campus_admin)"
+        )
+
+        def validate_user_id(self, value):
+            from apps.accounts.models import User, InstitutionMembership
+            try:
+                user = User.objects.get(pk=value)
+            except User.DoesNotExist:
+                raise serializers.ValidationError("User not found.")
+
+            if not user.is_active:
+                raise serializers.ValidationError("User is not active.")
+
+            campus = self.context.get("campus")
+            if not campus:
+                raise serializers.ValidationError("Campus context required.")
+
+            school = campus.school
+            membership = InstitutionMembership.objects.filter(
+                user=user,
+                institution=school,
+                status="active",
+            ).first()
+            if not membership:
+                raise serializers.ValidationError("User does not have an active membership in this school.")
+
+            # Check for existing role assignment for this campus
+            from apps.accounts.models import RoleAssignment, Role
+            role_map = {
+                "principal": Role.PRINCIPAL,
+                "vice_principal": Role.VICE_PRINCIPAL,
+                "campus_admin": Role.CAMPUS_ADMIN,
+            }
+            role_value = role_map[self.initial_data.get("role", "campus_admin")]
+
+            if RoleAssignment.objects.filter(
+                membership=membership,
+                role=role_value,
+                campus=campus,
+            ).exists():
+                raise serializers.ValidationError(f"User already has {role_value} role for this campus.")
+
+            # Check singleton constraint for the role on this campus
+            if RoleAssignment.objects.filter(
+                campus=campus,
+                role=role_value,
+            ).exists():
+                raise serializers.ValidationError(f"A {role_value} already exists for this campus.")
+
+            return value
+
+    @action(detail=True, methods=["get"], permission_classes=[HasActiveInstitution, IsAdminOrReadOnly])
+    def admin(self, request, pk=None):
+        """Get the campus admin for this campus."""
+        campus = self._resolve_campus(pk)
+
+        from apps.accounts.models import RoleAssignment, Role
+
+        # Get campus-level role assignments for this campus
+        campus_roles = [Role.CAMPUS_ADMIN, Role.PRINCIPAL, Role.VICE_PRINCIPAL]
+        assignments = RoleAssignment.objects.filter(
+            campus=campus,
+            role__in=campus_roles,
+        ).select_related("membership__user")
+
+        admins = []
+        for assignment in assignments:
+            user = assignment.membership.user
+            admins.append({
+                "user_id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "role": assignment.role,
+                "role_display": assignment.get_role_display(),
+                "is_active": user.is_active,
+                "assigned_at": assignment.created_at,
+            })
+
+        return Response({"admins": admins, "count": len(admins)})
+
+    @action(detail=True, methods=["post"], permission_classes=[HasActiveInstitution, IsAdminOrReadOnly])
+    def assign_admin(self, request, pk=None):
+        """Assign an existing user as campus admin (Campus Admin, Principal, or Vice Principal)."""
+        campus = self._resolve_campus(pk)
+
+        serializer = self.CampusAdminAssignSerializer(
+            data=request.data,
+            context={"campus": campus, "request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+
+        user_id = serializer.validated_data["user_id"]
+        role_value = serializer.validated_data["role"]
+
+        from apps.accounts.models import User, InstitutionMembership, RoleAssignment, Role
+        from apps.accounts.models import assign_role_safely
+
+        role_map = {
+            "campus_admin": Role.CAMPUS_ADMIN,
+            "principal": Role.PRINCIPAL,
+            "vice_principal": Role.VICE_PRINCIPAL,
+        }
+        role = role_map[role_value]
+
+        user = User.objects.get(pk=user_id)
+        school = campus.school
+        membership = InstitutionMembership.objects.get(
+            user=user,
+            institution=school,
+            status="active",
+        )
+
+        # Assign campus-level role with explicit campus FK
+        assignment, created, note = assign_role_safely(membership, role, campus=campus)
+
+        if not created and note:
+            return Response(
+                {"detail": note, "user_id": user.id},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        # Update denormalized institution FK if not set
+        if user.institution_id != school.id:
+            user.institution = school
+            user.save(update_fields=["institution"])
+
+        # Update StaffProfile primary_campus for consistency
+        if hasattr(user, "staff_profile"):
+            user.staff_profile.primary_campus = campus
+            user.staff_profile.save(update_fields=["primary_campus"])
+        else:
+            from apps.accounts.models import StaffProfile
+            StaffProfile.objects.create(
+                user=user,
+                institution=school,
+                primary_campus=campus,
+                employee_number=f"EMP-{user.username}",
+                first_name=user.first_name or "Campus",
+                last_name=user.last_name or school.name,
+                status="active",
+            )
+
+        return Response({
+            "detail": f"User assigned as {role_value.replace('_', ' ').title()} successfully.",
+            "user_id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "role": role,
+        }, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"], permission_classes=[HasActiveInstitution, IsAdminOrReadOnly])
+    def remove_admin(self, request, pk=None):
+        """Remove campus admin assignment."""
+        campus = self._resolve_campus(pk)
+
+        user_id = request.data.get("user_id")
+        role = request.data.get("role")  # Optional: if not provided, remove all campus-level roles for this user on this campus
+
+        if not user_id:
+            return Response(
+                {"detail": "user_id is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from apps.accounts.models import User, InstitutionMembership, RoleAssignment, Role
+
+        try:
+            user = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "User not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        school = campus.school
+        membership = InstitutionMembership.objects.filter(
+            user=user,
+            institution=school,
+            status="active",
+        ).first()
+
+        if not membership:
+            return Response(
+                {"detail": "User does not have an active membership in this school."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        campus_roles = [Role.CAMPUS_ADMIN, Role.PRINCIPAL, Role.VICE_PRINCIPAL]
+        if role:
+            # Remove specific role
+            if role not in campus_roles:
+                return Response(
+                    {"detail": "Invalid role."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            assignments = RoleAssignment.objects.filter(
+                membership=membership,
+                role=role,
+                campus=campus,
+            )
+        else:
+            # Remove all campus-level roles for this user on this campus
+            assignments = RoleAssignment.objects.filter(
+                membership=membership,
+                role__in=campus_roles,
+                campus=campus,
+            )
+
+        if not assignments.exists():
+            return Response(
+                {"detail": "No matching campus admin assignment found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        assignments.delete()
+
+        return Response({"detail": "Campus admin(s) removed successfully."})
 
 
 def _raise_parent_not_in_school(label):
