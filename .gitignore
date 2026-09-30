@@ -50,5 +50,7 @@ cookies.txt
 # Numeric debug artifacts accidentally created at repo root
 /[0-9]*
 
+.migration-secret.tmp
+
 Neon Console*
 
