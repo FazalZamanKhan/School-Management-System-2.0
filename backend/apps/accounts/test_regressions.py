@@ -418,7 +418,9 @@ class DesignationRoleMappingRegressionTests(TestCase):
         """Create a user with given role (for permission context)."""
         from django.contrib.auth import get_user_model
         User = get_user_model()
-        user = User.objects.create_user(username=username, password=PASSWORD)
+        user = User.objects.create_user(
+            username=username, password=PASSWORD, email=f"{username}@example.test"
+        )
         membership = InstitutionMembership.objects.create(
             user=user, institution=self.school, status="active"
         )
@@ -427,22 +429,24 @@ class DesignationRoleMappingRegressionTests(TestCase):
 
     def _provision_staff_with_designation(self, designation, email=""):
         """Create StaffProfile with designation and auto-provision account."""
-        from apps.accounts.serializers import StaffProfileSerializer
-        serializer = StaffProfileSerializer(data={
-            "employee_number": "EMP-%s" % designation.upper().replace(" ", "")[:10],
+        from apps.accounts.serializers import StaffProfileCRUDSerializer
+        sequence = StaffProfile.objects.filter(institution=self.school).count() + 1
+        serializer = StaffProfileCRUDSerializer(data={
+            "employee_number": f"EMP-{sequence}",
             "first_name": "Test",
             "last_name": "User",
             "designation": designation,
             "department": "Test",
-            "campus": self.campus.name,
+            "primary_campus": self.campus.id,
+            "gender": "female",
             "joining_date": "2024-01-01",
             "status": "active",
             "create_account": True,
-            "email": email or "test.%s@example.test" % designation.lower().replace(" ", "."),
+            "email": email or f"test.{sequence}@example.test",
             "password": "TempPass123!",
         })
         self.assertTrue(serializer.is_valid(), serializer.errors)
-        staff = serializer.save()
+        staff = serializer.save(institution=self.school)
         return staff
 
     def _get_user_role(self, user):

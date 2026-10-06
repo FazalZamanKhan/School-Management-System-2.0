@@ -42,6 +42,7 @@ jobs:
     env:
       DJANGO_SECRET_KEY: ci-only-not-for-production-school-management-tests
       DJANGO_SETTINGS_MODULE: config.settings.ci
+      DB_ENGINE: django.db.backends.postgresql
     services:
       postgres:
         image: postgres:17
