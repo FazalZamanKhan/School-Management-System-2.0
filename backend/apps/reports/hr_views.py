@@ -75,15 +75,28 @@ class HRAttendanceReportView(AggregateReportView):
 
     permission_classes = [IsAccountantRole]
     report_definition_key = "hr_attendance"
-    model = "apps.hr.models.Attendance"
+    model = "apps.accounts.models.StaffAttendance"
 
     def get_base_queryset(self, request):
-        from apps.hr.models import Attendance
-        return Attendance.objects.select_related("employee", "employee__user", "employee__campus")
+        from apps.accounts.models import StaffAttendance
+
+        return StaffAttendance.objects.filter(
+            staff__employee_record__isnull=False,
+        ).select_related(
+            "staff",
+            "staff__employee_record",
+            "staff__employee_record__department",
+            "staff__employee_record__primary_campus",
+        )
 
     def get_queryset(self, request):
-        queryset = super().get_queryset(request)
-        queryset = apply_campus_scope(queryset, request, "employee__campus_id")
+        queryset = self.get_base_queryset(request)
+        queryset = apply_campus_scope(
+            queryset,
+            request,
+            "staff__employee_record__primary_campus_id",
+            "institution_id",
+        )
 
         date_from = request.query_params.get("date_from")
         date_to = request.query_params.get("date_to")
@@ -95,7 +108,7 @@ class HRAttendanceReportView(AggregateReportView):
 
         employee = request.query_params.get("employee")
         if employee:
-            queryset = queryset.filter(employee_id=employee)
+            queryset = queryset.filter(staff__employee_record__id=employee)
 
         return queryset
 
@@ -118,12 +131,13 @@ class HRAttendanceReportView(AggregateReportView):
     def get_detail_rows(self, queryset, request):
         rows = []
         for record in queryset:
+            employee = record.staff.employee_record
             rows.append({
                 "date": record.date,
-                "employee_id": record.employee.employee_id,
-                "employee": record.employee.full_name,
-                "department": record.employee.department.name if record.employee.department else "-",
-                "campus": record.employee.campus.name if record.employee.campus else "-",
+                "employee_id": employee.employee_number,
+                "employee": employee.full_name,
+                "department": employee.department.name if employee.department else "-",
+                "campus": employee.primary_campus.name if employee.primary_campus else "-",
                 "status": record.get_status_display(),
                 "check_in": record.check_in,
                 "check_out": record.check_out,
