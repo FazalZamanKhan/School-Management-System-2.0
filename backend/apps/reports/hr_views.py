@@ -1,7 +1,7 @@
 """HR and Payroll Reports."""
 
 from decimal import Decimal
-from django.db.models import Count, Q, Case, When, Value, IntegerField, Sum, Avg, Max, Min
+from django.db.models import Count, Q, Case, When, Value, IntegerField, Sum, Avg, Max, Min, Prefetch
 from django.utils import timezone
 from rest_framework.response import Response
 
@@ -20,13 +20,25 @@ class EmployeeMasterReportView(AggregateReportView):
 
     def get_base_queryset(self, request):
         from apps.hr.models import Employee
+        from apps.payroll.models import SalaryStructure
+
         return Employee.objects.select_related(
-            "user", "department", "designation", "campus", "employment_type"
+            "teacher",
+            "staff_profile",
+            "department",
+            "designation",
+            "primary_campus",
+        ).prefetch_related(
+            Prefetch(
+                "salary_structures",
+                queryset=SalaryStructure.objects.filter(status="active").order_by("-effective_date"),
+                to_attr="active_salary_structures",
+            )
         )
 
     def get_queryset(self, request):
-        queryset = super().get_queryset(request)
-        queryset = apply_campus_scope(queryset, request, "campus_id")
+        queryset = self.get_base_queryset(request)
+        queryset = apply_campus_scope(queryset, request, "primary_campus_id")
 
         status = request.query_params.get("status")
         if status:
@@ -42,7 +54,7 @@ class EmployeeMasterReportView(AggregateReportView):
         total = queryset.count()
         by_status = queryset.values("status").annotate(count=Count("id"))
         by_department = queryset.values("department__name").annotate(count=Count("id"))
-        by_campus = queryset.values("campus__name").annotate(count=Count("id"))
+        by_campus = queryset.values("primary_campus__name").annotate(count=Count("id"))
 
         return {
             "total_employees": total,
@@ -54,18 +66,20 @@ class EmployeeMasterReportView(AggregateReportView):
     def get_detail_rows(self, queryset, request):
         rows = []
         for emp in queryset:
+            profile = emp.staff_profile or emp.teacher
+            salary_structure = emp.active_salary_structures[0] if emp.active_salary_structures else None
             rows.append({
-                "employee_id": emp.employee_id,
+                "employee_id": emp.employee_number,
                 "full_name": emp.full_name,
-                "email": emp.user.email if emp.user else "-",
-                "phone": emp.phone,
+                "email": profile.email if profile and profile.email else "-",
+                "phone": profile.phone if profile and profile.phone else "-",
                 "department": emp.department.name if emp.department else "-",
                 "designation": emp.designation.name if emp.designation else "-",
-                "campus": emp.campus.name if emp.campus else "-",
-                "employment_type": emp.employment_type.name if emp.employment_type else "-",
+                "campus": emp.primary_campus.name if emp.primary_campus else "-",
+                "employment_type": emp.get_employment_type_display(),
                 "joining_date": emp.joining_date,
                 "status": emp.get_status_display(),
-                "basic_salary": str(emp.basic_salary) if emp.basic_salary else "0",
+                "basic_salary": str(salary_structure.basic_salary) if salary_structure else "0",
             })
         return rows
 
