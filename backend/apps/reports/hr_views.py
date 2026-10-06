@@ -141,12 +141,22 @@ class HRLeaveReportView(AggregateReportView):
     def get_base_queryset(self, request):
         from apps.hr.models import LeaveRequest
         return LeaveRequest.objects.select_related(
-            "employee", "employee__user", "employee__campus", "leave_type", "reviewed_by"
+            "employee",
+            "employee__teacher",
+            "employee__staff_profile",
+            "employee__primary_campus",
+            "leave_type",
+            "reviewed_by",
         )
 
     def get_queryset(self, request):
-        queryset = super().get_queryset(request)
-        queryset = apply_campus_scope(queryset, request, "employee__campus_id")
+        queryset = self.get_base_queryset(request)
+        queryset = apply_campus_scope(
+            queryset,
+            request,
+            "employee__primary_campus_id",
+            "employee__institution_id",
+        )
 
         status = request.query_params.get("status")
         if status:
@@ -171,8 +181,8 @@ class HRLeaveReportView(AggregateReportView):
         by_status = queryset.values("status").annotate(count=Count("id"))
         by_type = queryset.values("leave_type__name").annotate(count=Count("id"))
 
-        total_days = sum(l.days for l in queryset)
-        approved_days = sum(l.days for l in queryset.filter(status="approved"))
+        total_days = sum(l.total_days for l in queryset)
+        approved_days = sum(l.total_days for l in queryset.filter(status="approved"))
 
         return {
             "total_requests": total,
@@ -186,12 +196,12 @@ class HRLeaveReportView(AggregateReportView):
         rows = []
         for leave in queryset:
             rows.append({
-                "employee_id": leave.employee.employee_id,
+                "employee_id": leave.employee.employee_number,
                 "employee": leave.employee.full_name,
                 "leave_type": leave.leave_type.name if leave.leave_type else "-",
                 "start_date": leave.start_date,
                 "end_date": leave.end_date,
-                "days": leave.days,
+                "days": leave.total_days,
                 "reason": leave.reason,
                 "status": leave.get_status_display(),
                 "reviewed_by": leave.reviewed_by.get_full_name() if leave.reviewed_by else "-",
