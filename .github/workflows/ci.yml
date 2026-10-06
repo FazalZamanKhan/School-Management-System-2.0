@@ -32,11 +32,16 @@ jobs:
         run: npm ci
       - name: Lint frontend
         run: npm run lint
+      - name: Test frontend
+        run: npm test
       - name: Build frontend
         run: npm run build
 
   backend:
     runs-on: ubuntu-latest
+    env:
+      DJANGO_SECRET_KEY: ci-only-not-for-production-school-management-tests
+      DJANGO_SETTINGS_MODULE: config.settings.ci
     services:
       postgres:
         image: postgres:17

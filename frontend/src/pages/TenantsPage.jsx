@@ -125,8 +125,8 @@ function SchoolDetail({
     schoolAdminsLoading,
     schoolAdminsError,
     assignSchoolAdminForm,
+    setAssignSchoolAdminForm,
     assignSchoolAdminSaving,
-    fetchSchoolAdmins,
     handleAssignSchoolAdmin,
     handleRemoveSchoolAdmin,
   }) {
@@ -803,8 +803,8 @@ export default function TenantsPage() {
           schoolAdminsLoading={schoolAdminsLoading}
           schoolAdminsError={schoolAdminsError}
           assignSchoolAdminForm={assignSchoolAdminForm}
+          setAssignSchoolAdminForm={setAssignSchoolAdminForm}
           assignSchoolAdminSaving={assignSchoolAdminSaving}
-          fetchSchoolAdmins={fetchSchoolAdmins}
           handleAssignSchoolAdmin={(schoolId) => handleAssignSchoolAdmin(schoolId)}
           handleRemoveSchoolAdmin={handleRemoveSchoolAdmin}
         />

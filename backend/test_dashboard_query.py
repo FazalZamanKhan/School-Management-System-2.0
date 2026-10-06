@@ -1,56 +1,44 @@
-import os, sys, django, time
+"""Manual dashboard query diagnostic; safe to import during test discovery."""
 
-# Setup Django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.config.settings.production')
-sys.path.insert(0, r'C:\Users\Ryuk\Documents\perfect-foundation-sms\backend')
+import os
+import time
 
-import django
-django.setup()
 
-from django.db import connection, reset_queries
-from django.test import RequestFactory
-from django.contrib.auth import get_user_model
-from apps.dashboard.views import _institution_overview_counts
-from apps.accounts.access import campus_access, get_institution
+def main():
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.development")
 
-# Find the admin user
-User = get_user_model()
-admin_user = User.objects.filter(username='Flora').first()
-if not admin_user:
-    print("Admin user not found")
-    sys.exit(1)
+    import django
+    django.setup()
 
-print(f"Found admin user: {admin_user.username} (id={admin_user.id})")
+    from django.contrib.auth import get_user_model
+    from django.db import connection, reset_queries
+    from django.test import RequestFactory
+    from apps.accounts.access import campus_access, get_institution
+    from apps.dashboard.views import _institution_overview_counts
 
-# Create a mock request
-factory = RequestFactory()
-request = factory.get('/api/dashboard/overview/')
-request.user = admin_user
+    admin_user = get_user_model().objects.filter(username="Flora").first()
+    if not admin_user:
+        print("Admin user not found")
+        return 1
 
-# Check institution
-institution = get_institution(request)
-print(f"Institution: {institution}")
+    print(f"Found admin user: {admin_user.username} (id={admin_user.id})")
+    request = RequestFactory().get("/api/dashboard/overview/")
+    request.user = admin_user
+    print(f"Institution: {get_institution(request)}")
+    print(f"Campus access: {campus_access(request)}")
 
-# Check campus access
-ca = campus_access(request)
-print(f"Campus access: {ca}")
+    reset_queries()
+    started = time.time()
+    result = _institution_overview_counts(request)
+    print(f"Result: {result}")
+    print(f"Time: {time.time() - started:.3f}s")
+    print(f"Queries executed: {len(connection.queries)}")
+    for index, query in enumerate(connection.queries):
+        print(f"\nQuery {index + 1} ({float(query['time']):.3f}s):")
+        print(query["sql"][:500])
+    print(f"\nTotal query time: {sum(float(q['time']) for q in connection.queries):.3f}s")
+    return 0
 
-# Reset queries
-reset_queries()
 
-# Time the query
-t0 = time.time()
-result = _institution_overview_counts(request)
-dt = time.time() - t0
-
-print(f"Result: {result}")
-print(f"Time: {dt:.3f}s")
-print(f"Queries executed: {len(connection.queries)}")
-
-for i, q in enumerate(connection.queries):
-    print(f"\nQuery {i+1} ({float(q['time']):.3f}s):")
-    print(q['sql'][:500])
-    print("...")
-
-print(f"\nTotal query time: {sum(float(q['time']) for q in connection.queries):.3f}s")
-print(f"Total queries: {len(connection.queries)}")
+if __name__ == "__main__":
+    raise SystemExit(main())
