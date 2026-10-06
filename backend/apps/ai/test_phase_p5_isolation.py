@@ -84,9 +84,9 @@ class AiCampusIsolationTests(TestCase):
     def setUp(self):
         self.school = make_school("Campus Iso", "cis")
         self.structure_main = make_structure(self.school, campus_name="Main", year_name="2025-2026")
-        self.north_campus = Campus.objects.create(school=self.school, name="North")
         # North campus needs its own class structure with different year name
         self.structure_north = make_structure(self.school, campus_name="North", year_name="2025-2026-North")
+        self.north_campus = self.structure_north["campus"]
 
         self.student_main = make_student(
             self.school,
@@ -106,7 +106,9 @@ class AiCampusIsolationTests(TestCase):
         self.student_north.primary_campus = self.north_campus
         self.student_north.save()
 
-        self.principal = make_member_user(self.school, "cis-principal", Role.PRINCIPAL)
+        self.principal = make_member_user(
+            self.school, "cis-principal", Role.PRINCIPAL, campus=self.north_campus
+        )
         self.membership = self.principal.memberships.get(institution=self.school)
         make_staff_profile(self.principal, self.membership, self.school, self.north_campus)
 

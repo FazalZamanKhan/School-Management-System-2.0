@@ -21,7 +21,8 @@ test.describe("Auth flow", () => {
     await submit.click();
     await expect(page.locator("input[autocomplete='username']")).toBeVisible();
     const url = page.url();
-    expect(url).toContain("perfect-foundation-sms.vercel.app");
+    const baseURL = process.env.P43_BASE_URL || "https://perfect-foundation-sms.vercel.app";
+    expect(new URL(url).origin).toBe(new URL(baseURL).origin);
   });
 
   test("unauthenticated session shows login, no dashboard", async ({ page, context }) => {

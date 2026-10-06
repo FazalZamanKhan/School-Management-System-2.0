@@ -31,7 +31,7 @@ def make_school(name, code):
     return School.objects.create(name=name, code=code)
 
 
-def make_member_user(school, username, role, password="TestPass123!"):
+def make_member_user(school, username, role, password="TestPass123!", campus=None):
     user = get_user_model().objects.create_user(
         username=username,
         email=f"{username}@test.edu",
@@ -41,7 +41,7 @@ def make_member_user(school, username, role, password="TestPass123!"):
         user=user,
         institution=school,
     )
-    RoleAssignment.objects.create(membership=membership, role=role)
+    RoleAssignment.objects.create(membership=membership, role=role, campus=campus)
     return user
 
 
@@ -52,27 +52,6 @@ def make_superuser(username, password="TestPass123!"):
         password=password,
         is_superuser=True,
     )
-
-
-def make_structure(school, campus_name="Main"):
-    campus = Campus.objects.create(school=school, name=campus_name)
-    unit = AcademicUnit.objects.create(campus=campus, name="Primary")
-    class_obj = Class.objects.create(unit=unit, name="Grade 6")
-    section = Section.objects.create(class_obj=class_obj, name="A")
-    subject = Subject.objects.create(name="Mathematics", code="MATH")
-    year = AcademicYear.objects.create(
-        school=school,
-        name="2025-2026",
-        start_date=date(2025, 8, 1),
-        end_date=date(2026, 7, 31),
-    )
-    return {
-        "campus": campus,
-        "class_obj": class_obj,
-        "section": section,
-        "subject": subject,
-        "year": year,
-    }
 
 
 def make_student(school, structure, name="Student One", admission=None, campus=None):
