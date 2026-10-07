@@ -4035,6 +4035,13 @@ body.modal-open {
   color: var(--danger);
 }
 
+.field-error {
+  display: block;
+  margin-top: 4px;
+  color: var(--danger);
+  font-size: 12px;
+}
+
 .state-card.success {
   border-color: var(--success-border);
   background: var(--success-soft);

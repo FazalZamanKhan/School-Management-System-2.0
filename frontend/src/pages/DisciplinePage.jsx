@@ -38,6 +38,7 @@ export default function DisciplinePage() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [validationErrors, setValidationErrors] = useState({});
   const [students, setStudents] = useState([]);
   const [campuses, setCampuses] = useState([]);
 
@@ -86,11 +87,13 @@ export default function DisciplinePage() {
   const openCreate = () => {
     setEditing(null);
     setForm(EMPTY_FORM);
+    setValidationErrors({});
     setShowForm(true);
   };
 
   const openEdit = (incident) => {
     setEditing(incident);
+    setValidationErrors({});
     setForm({
       title: incident.title || "",
       description: incident.description || "",
@@ -108,6 +111,7 @@ export default function DisciplinePage() {
     setShowForm(false);
     setEditing(null);
     setForm(EMPTY_FORM);
+    setValidationErrors({});
   };
 
   const severityClass = (sev) => {
@@ -120,10 +124,28 @@ export default function DisciplinePage() {
   const handleChange = (event) => {
     const { name, value } = event.target;
     setForm((previous) => ({ ...previous, [name]: value }));
+    setValidationErrors((previous) => ({ ...previous, [name]: "" }));
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    const errors = {};
+    if (!form.student) errors.student = "Select a student.";
+    if (!form.campus) errors.campus = "Select a campus.";
+    if (!form.title.trim()) errors.title = "Enter an incident title.";
+    else if (form.title.trim().length > 200) errors.title = "Title must be 200 characters or fewer.";
+    if (!form.description.trim()) errors.description = "Describe what happened.";
+    if (form.location.length > 200) errors.location = "Location must be 200 characters or fewer.";
+    if (!form.incident_date || Number.isNaN(Date.parse(form.incident_date))) {
+      errors.incident_date = "Enter a valid incident date.";
+    } else if (new Date(`${form.incident_date}T00:00:00`) > new Date(new Date().toDateString())) {
+      errors.incident_date = "Incident date cannot be in the future.";
+    }
+    if (!SEVERITIES.some(({ value }) => value === form.severity)) errors.severity = "Select a valid severity.";
+    if (!STATUSES.some(({ value }) => value === form.status)) errors.status = "Select a valid status.";
+    setValidationErrors(errors);
+    if (Object.keys(errors).length) return;
+
     setSaving(true);
     setError("");
 
@@ -361,7 +383,7 @@ export default function DisciplinePage() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} noValidate>
               <div className="form-section">
                 <h4>Incident Details</h4>
 
@@ -388,6 +410,7 @@ export default function DisciplinePage() {
                         </option>
                       ))}
                     </select>
+                    {validationErrors.student && <span role="alert" className="field-error">{validationErrors.student}</span>}
                   </label>
 
                   <label>
@@ -411,6 +434,7 @@ export default function DisciplinePage() {
                         </option>
                       ))}
                     </select>
+                    {validationErrors.campus && <span role="alert" className="field-error">{validationErrors.campus}</span>}
                   </label>
 
                   <label className="form-span">
@@ -421,7 +445,9 @@ export default function DisciplinePage() {
                       onChange={handleChange}
                       placeholder="e.g. Classroom disruption"
                       required
+                      maxLength={200}
                     />
+                    {validationErrors.title && <span role="alert" className="field-error">{validationErrors.title}</span>}
                   </label>
 
                   <label className="form-span">
@@ -432,7 +458,9 @@ export default function DisciplinePage() {
                       onChange={handleChange}
                       placeholder="What happened?"
                       rows="3"
+                      required
                     />
+                    {validationErrors.description && <span role="alert" className="field-error">{validationErrors.description}</span>}
                   </label>
 
                   <label>
@@ -442,7 +470,9 @@ export default function DisciplinePage() {
                       value={form.location}
                       onChange={handleChange}
                       placeholder="e.g. Science Lab"
+                      maxLength={200}
                     />
+                    {validationErrors.location && <span role="alert" className="field-error">{validationErrors.location}</span>}
                   </label>
 
                   <label>
@@ -454,6 +484,7 @@ export default function DisciplinePage() {
                       onChange={handleChange}
                       required
                     />
+                    {validationErrors.incident_date && <span role="alert" className="field-error">{validationErrors.incident_date}</span>}
                   </label>
 
                   <label>
@@ -472,6 +503,7 @@ export default function DisciplinePage() {
                         </option>
                       ))}
                     </select>
+                    {validationErrors.severity && <span role="alert" className="field-error">{validationErrors.severity}</span>}
                   </label>
 
                   <label>
@@ -490,6 +522,7 @@ export default function DisciplinePage() {
                         </option>
                       ))}
                     </select>
+                    {validationErrors.status && <span role="alert" className="field-error">{validationErrors.status}</span>}
                   </label>
                 </div>
               </div>
