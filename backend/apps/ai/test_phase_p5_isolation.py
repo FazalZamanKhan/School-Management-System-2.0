@@ -7,7 +7,7 @@ the user is not allowed to see, even when identifiers collide.
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from apps.accounts.models import Role
+from apps.accounts.models import Role, RoleAssignment
 from apps.schools.models import Campus, Class, Section
 from apps.students.models import Enrollment
 
@@ -108,6 +108,9 @@ class AiCampusIsolationTests(TestCase):
 
         self.principal = make_member_user(self.school, "cis-principal", Role.PRINCIPAL)
         self.membership = self.principal.memberships.get(institution=self.school)
+        RoleAssignment.objects.filter(
+            membership=self.membership, role=Role.PRINCIPAL
+        ).update(campus=self.north_campus)
         make_staff_profile(self.principal, self.membership, self.school, self.north_campus)
 
     def _client(self):

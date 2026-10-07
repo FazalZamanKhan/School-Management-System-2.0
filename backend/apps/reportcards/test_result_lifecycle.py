@@ -360,6 +360,7 @@ class ResultLifecycleIsolationApiTests(TestCase):
         RoleAssignment.objects.create(
             membership=membership,
             role=Role.CAMPUS_ADMIN,
+            campus=campus,
         )
         StaffProfile.objects.create(
             user=user,

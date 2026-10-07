@@ -1,37 +1,35 @@
-import os, sys, django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.config.settings.test')
-sys.path.insert(0, r'C:\Users\Ryuk\Documents\perfect-foundation-sms\backend')
-import django
-django.setup()
+"""Manual student query diagnostic; safe to import during test discovery."""
 
-from django.db import connection, reset_queries
-from django.test import RequestFactory
-from django.contrib.auth import get_user_model
-from apps.students.views import StudentListCreateView
+import os
 
-User = get_user_model()
-admin = User.objects.filter(username='Flora').first()
-if not admin:
-    admin = User.objects.filter(username='admin').first()
 
-factory = RequestFactory()
-request = factory.get('/api/students/')
-request.user = admin
-from apps.accounts.managers import get_current_institution
-inst = get_current_institution()
-print('Institution:', inst)
-request.institution = inst
+def main():
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.development")
+    import django
+    django.setup()
 
-reset_queries()
-view = StudentListCreateView()
-view.request = request
-queryset = view.get_queryset()
-list(queryset)
+    from django.db import connection, reset_queries
+    from django.contrib.auth import get_user_model
+    from rest_framework.test import APIRequestFactory
+    from rest_framework.request import Request
+    from apps.students.views import StudentListCreateView
 
-print('Queries:', len(connection.queries))
-for q in connection.queries:
-    t = float(q['time'])
-    sql = q['sql'][:200]
-    print('  {:.4f}s: {}...'.format(t, sql))
-total = sum(float(q['time']) for q in connection.queries)
-print('Total time: {:.4f}s'.format(total))
+    user = get_user_model().objects.filter(username__in=["Flora", "admin"]).first()
+    if user is None:
+        print("Admin user not found")
+        return 1
+    request = Request(APIRequestFactory().get("/api/students/"))
+    request.user = user
+    request.institution = user.primary_institution
+    reset_queries()
+    view = StudentListCreateView()
+    view.request = request
+    list(view.get_queryset())
+    print("Queries:", len(connection.queries))
+    for query in connection.queries:
+        print(f"{float(query['time']):.4f}s: {query['sql'][:200]}...")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

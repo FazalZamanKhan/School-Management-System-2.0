@@ -23,7 +23,7 @@ PASSWORD = "TestPass123!"
 
 def _make_campus_admin(username, campus, employee_number):
     """A CAMPUS_ADMIN whose staff profile pins them to a single campus."""
-    user = make_user(username, Role.CAMPUS_ADMIN, campus.school)
+    user = make_user(username, Role.CAMPUS_ADMIN, campus.school, campus=campus)
     StaffProfile.objects.create(
         user=user,
         employee_number=employee_number,

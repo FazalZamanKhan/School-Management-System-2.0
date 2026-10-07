@@ -12,7 +12,7 @@ class BookCampusIsolationTests(TestCase):
         self.school = School.objects.create(name="Library School")
         self.campus_a = Campus.objects.create(school=self.school, name="Campus A")
         self.campus_b = Campus.objects.create(school=self.school, name="Campus B")
-        self.user = make_user("library-admin", Role.CAMPUS_ADMIN, self.school)
+        self.user = make_user("library-admin", Role.CAMPUS_ADMIN, self.school, campus=self.campus_a)
         StaffProfile.objects.create(
             user=self.user,
             employee_number="LIB-001",

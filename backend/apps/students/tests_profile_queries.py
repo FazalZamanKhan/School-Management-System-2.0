@@ -16,8 +16,9 @@ class StudentQueryProfileTest(TestCase):
 
     def setUp(self):
         # Create test data
-        from apps.accounts.models import InstitutionMembership, Role, RoleAssignment, assign_role_safely
-        from apps.schools.models import School, AcademicYear, Campus, Class, Section
+        from apps.accounts.models import InstitutionMembership, Role, assign_role_safely
+        from apps.schools.models import School, AcademicYear, Campus, AcademicUnit, Class, Section
+        from apps.students.models import Student, Enrollment, Guardian
         
         # Create school
         school = School.objects.create(name="Test School", code="TS", status="active")
@@ -30,7 +31,8 @@ class StudentQueryProfileTest(TestCase):
         ay = AcademicYear.objects.create(school=school, name="2026-2027", start_date=date(2026, 1, 1), end_date=date(2027, 12, 31), status="active")
         
         # Create class and section
-        unit = Class.objects.create(campus=campus, name="Grade 1", status="active")
+        academic_unit = AcademicUnit.objects.create(campus=campus, name="Primary")
+        unit = Class.objects.create(unit=academic_unit, name="Grade 1", status="active")
         section = Section.objects.create(class_obj=unit, name="A", status="active")
         
         # Create admin user
@@ -38,8 +40,11 @@ class StudentQueryProfileTest(TestCase):
         
         # Create institution membership
         membership = InstitutionMembership.objects.create(user=self.admin, institution=school, status="active")
-        role = Role.objects.create(name="principal")
-        assign_role_safely(membership, role)
+        assign_role_safely(membership, Role.SUPER_ADMIN)
+
+        guardian = Guardian.objects.create(
+            institution=school, name="Test Parent", relationship="Parent", phone="0300000000"
+        )
         
         # Create test students
         for i in range(5):
@@ -55,6 +60,7 @@ class StudentQueryProfileTest(TestCase):
                 status="active",
                 admission_date=date(2026, 1, 1),
                 primary_campus=campus,
+                guardian=guardian,
             )
             # Create enrollment
             Enrollment.objects.create(
@@ -69,6 +75,7 @@ class StudentQueryProfileTest(TestCase):
         # Set up institution context
         from apps.accounts.managers import set_current_institution
         set_current_institution(school)
+        self.addCleanup(set_current_institution, None)
 
     def test_profile_student_list_queries(self):
         """Profile the number of queries for student list"""
@@ -78,8 +85,8 @@ class StudentQueryProfileTest(TestCase):
         inst = get_current_institution()
         self.assertIsNotNone(inst, "Institution not found")
 
-        factory = RequestFactory()
-        request = RequestFactory().get('/api/students/')
+        from rest_framework.request import Request
+        request = Request(RequestFactory().get('/api/students/'))
         request.user = admin
         request.institution = inst
 
@@ -96,6 +103,7 @@ class StudentQueryProfileTest(TestCase):
         view.request = request
         queryset = view.get_queryset()
         results = list(queryset)
+        self.assertEqual(len(results), 5)
         dt = time.time() - t0
 
         print("\n=== Query Profile ===")

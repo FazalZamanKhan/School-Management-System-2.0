@@ -48,6 +48,7 @@ class VisitorsTestsBase(TestCase):
         RoleAssignment.objects.create(
             membership=membership,
             role=role,
+            campus=campus,
         )
         if campus is not None:
             StaffProfile.objects.create(

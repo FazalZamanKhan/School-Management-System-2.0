@@ -298,7 +298,7 @@ class CSPViolation(models.Model):
 
         # Truncate script_sample to 80 chars
         if self.script_sample and len(self.script_sample) > 80:
-            self.script_sample = self.script_sample[:80] + "..."
+            self.script_sample = self.script_sample[:77] + "..."
 
         # Redact secrets in script_sample
         if self.script_sample:

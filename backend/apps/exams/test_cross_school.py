@@ -269,7 +269,7 @@ class ExamIsolationBase(TestCase):
         membership = InstitutionMembership.objects.create(
             user=user, institution=school
         )
-        RoleAssignment.objects.create(membership=membership, role=role)
+        RoleAssignment.objects.create(membership=membership, role=role, campus=campus)
         StaffProfile.objects.create(
             user=user,
             membership=membership,

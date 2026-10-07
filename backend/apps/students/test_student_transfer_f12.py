@@ -107,7 +107,7 @@ class StudentTransferTenantIsolationTests(TestCase):
         )
 
         # Users
-        self.campus_admin_a1 = make_user("cadmin_a1", Role.CAMPUS_ADMIN, self.school_a)
+        self.campus_admin_a1 = make_user("cadmin_a1", Role.CAMPUS_ADMIN, self.school_a, campus=self.campus_a1)
         from apps.accounts.models import StaffProfile, InstitutionMembership
         membership_a1 = InstitutionMembership.objects.get(user=self.campus_admin_a1, institution=self.school_a)
         StaffProfile.objects.create(
@@ -119,7 +119,7 @@ class StudentTransferTenantIsolationTests(TestCase):
             gender="male",
             primary_campus=self.campus_a1,
         )
-        self.campus_admin_b1 = make_user("cadmin_b1", Role.CAMPUS_ADMIN, self.school_b)
+        self.campus_admin_b1 = make_user("cadmin_b1", Role.CAMPUS_ADMIN, self.school_b, campus=self.campus_b1)
         membership_b1 = InstitutionMembership.objects.get(user=self.campus_admin_b1, institution=self.school_b)
         StaffProfile.objects.create(
             user=self.campus_admin_b1,

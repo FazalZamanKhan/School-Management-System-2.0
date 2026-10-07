@@ -47,13 +47,7 @@ class CSPViolationReportingTests(TestCase):
         from django.core.cache import caches
         for cache_name in ["default", "ratelimit"]:
             cache = caches[cache_name]
-            # Clear different cache backend types
-            if hasattr(cache, '_cache'):
-                cache._cache.clear()
-            elif hasattr(cache, '_data'):
-                cache._data.clear()
-            elif hasattr(cache, 'clear'):
-                cache.clear()
+            cache.clear()
 
     def _as(self, user):
         self.client.force_authenticate(user=None)
@@ -331,7 +325,7 @@ class CSPViolationReportingTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
         violation = CSPViolation.objects.first()
-        self.assertEqual(len(violation.script_sample), 83)  # 80 + "..."
+        self.assertEqual(len(violation.script_sample), 80)  # Includes the ellipsis.
         self.assertTrue(violation.script_sample.endswith("..."))
 
     def test_secret_redaction_in_script_sample(self):
@@ -692,7 +686,7 @@ class CSPViolationModelTests(TestCase):
             script_sample="x" * 100,
         )
         violation.sanitize()
-        self.assertEqual(len(violation.script_sample), 83)
+        self.assertEqual(len(violation.script_sample), 80)
         self.assertTrue(violation.script_sample.endswith("..."))
 
     def test_sanitize_redacts_secrets(self):

@@ -30,7 +30,7 @@ from apps.students.models import Guardian, Student
 from apps.teachers.models import Teacher
 
 
-def make_user(username, role, school, extra_roles=None):
+def make_user(username, role, school, extra_roles=None, campus=None):
     user = get_user_model().objects.create_user(
         username=username,
         email=f"{username}@test.edu",
@@ -43,6 +43,7 @@ def make_user(username, role, school, extra_roles=None):
     RoleAssignment.objects.create(
         membership=membership,
         role=role,
+        campus=campus,
     )
     for extra in extra_roles or []:
         RoleAssignment.objects.create(
