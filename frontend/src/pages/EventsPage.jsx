@@ -146,6 +146,17 @@ export default function EventsPage() {
   const handleSubmit = async (event) => {
     event.preventDefault();
 
+    const start = new Date(form.start_datetime);
+    const end = new Date(form.end_datetime);
+    if (!form.start_datetime || !form.end_datetime || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      setError("Enter valid start and end dates and times.");
+      return;
+    }
+    if (end <= start) {
+      setError("Event end time must be later than the start time.");
+      return;
+    }
+
     setSaving(true);
     setError("");
 
