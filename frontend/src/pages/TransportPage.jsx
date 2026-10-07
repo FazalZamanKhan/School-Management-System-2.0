@@ -244,6 +244,7 @@ export default function TransportPage() {
 
   const switchTab = (key) => {
     setTab(key);
+    setError("");
 
     if (data[key] === undefined) {
       load(key);

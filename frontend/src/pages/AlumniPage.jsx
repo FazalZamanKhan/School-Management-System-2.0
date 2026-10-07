@@ -100,6 +100,15 @@ export default function AlumniPage() {
 
   const submit = (event) => {
     event.preventDefault();
+    if (!form.full_name.trim()) {
+      setFormError("Enter a full name.");
+      return;
+    }
+    const emailInput = event.currentTarget.querySelector('input[type="email"]');
+    if (emailInput && !emailInput.checkValidity()) {
+      setFormError("Enter a valid email address.");
+      return;
+    }
     const year = Number(form.batch_year);
     const currentYear = new Date().getFullYear();
     if (!Number.isInteger(year) || year < 1980 || year > currentYear) {

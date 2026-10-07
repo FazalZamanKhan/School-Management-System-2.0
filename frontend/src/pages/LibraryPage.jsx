@@ -127,6 +127,7 @@ export default function LibraryPage() {
   const switchTab = (next) => {
     setTab(next);
     setMessage("");
+    setError("");
 
     if (next === "books" && books === null) {
       loadBooks();

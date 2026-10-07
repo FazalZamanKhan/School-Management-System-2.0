@@ -123,6 +123,7 @@ export default function InventoryPage() {
 
   const switchTab = (key) => {
     setTab(key);
+    setError("");
 
     if (data[key] === undefined) {
       load(key);
@@ -141,16 +142,19 @@ export default function InventoryPage() {
     setShowForm(false);
     setEditing(null);
     setForm(EMPTY_ASSET_FORM);
+    setFormValidationErrors({});
   };
 
   const openAddAsset = () => {
     setEditing(null);
     setForm(EMPTY_ASSET_FORM);
+    setFormValidationErrors({});
     setShowForm(true);
   };
 
   const openEditAsset = (asset) => {
     setEditing(asset);
+    setFormValidationErrors({});
     setForm({
       name: asset.name || "",
       campus: asset.campus ?? "",
