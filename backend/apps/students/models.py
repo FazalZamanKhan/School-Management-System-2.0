@@ -302,6 +302,10 @@ class AdmissionApplication(models.Model):
 
     def clean(self):
         errors = {}
+        for field in ("first_name", "middle_name", "last_name"):
+            value = getattr(self, field, "")
+            if value and not any(char.isalpha() for char in value):
+                errors[field] = "Enter a name containing at least one letter."
         if self.class_obj_id and self.campus_id:
             if self.class_obj.unit.campus_id != self.campus_id:
                 errors["class_obj"] = "The selected class does not belong to the selected campus."
