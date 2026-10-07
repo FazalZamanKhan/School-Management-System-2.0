@@ -2,6 +2,7 @@ from datetime import date
 from decimal import Decimal
 
 from django.shortcuts import get_object_or_404
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework import generics, serializers, status
 from rest_framework.exceptions import PermissionDenied
@@ -9,9 +10,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.access import apply_campus_scope, assert_campus_allowed
-from apps.accounts.permissions import IsAccountantRole, IsAdminOrReadOnly
+from apps.accounts.permissions import IsAccountantRole, IsAdminOrReadOnly, IsAdminRole
 from apps.accounts.scopes import is_manager
 from apps.audit.models import record_audit
+from apps.accounts.models import StaffProfile
+from apps.teachers.models import Teacher
 
 from .models import (
     Employee,
@@ -89,7 +92,44 @@ def owned_queryset(model, request):
     return model.objects.filter(employee__in=employee_queryset(request))
 
 
+def available_employee_profiles(request, profile_type):
+    institution = getattr(request, "institution", None)
+    model = Teacher if profile_type == "teacher" else StaffProfile
+    if institution is None:
+        return model.objects.none()
+    queryset = model.objects.filter(
+        Q(institution=institution)
+        | Q(institution__isnull=True, membership__institution=institution)
+        | Q(institution__isnull=True, membership__isnull=True, primary_campus__school=institution)
+    ).filter(employee_record__isnull=True)
+    return apply_campus_scope(queryset, request, "primary_campus_id", institution_field=None)
+
+
 # Original Employee Views (from original implementation)
+class EmployeeProfileListView(APIView):
+    permission_classes = [IsAdminRole]
+
+    def get(self, request):
+        profile_type = request.query_params.get("profile_type", "staff")
+        if profile_type not in ("staff", "teacher"):
+            raise serializers.ValidationError({"profile_type": "Choose staff or teacher."})
+        if getattr(request, "institution", None) is None:
+            return Response([])
+        queryset = available_employee_profiles(request, profile_type)
+        search = request.query_params.get("search", "").strip()
+        if search:
+            queryset = queryset.filter(
+                Q(first_name__icontains=search)
+                | Q(last_name__icontains=search)
+                | Q(employee_number__icontains=search)
+            )
+        return Response([
+            {"id": profile.pk, "full_name": profile.full_name,
+             "employee_number": profile.employee_number, "primary_campus": profile.primary_campus_id}
+            for profile in queryset.order_by("first_name", "last_name", "pk")[:100]
+        ])
+
+
 class EmployeeListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAdminOrReadOnly]
     serializer_class = EmployeeSerializer
@@ -119,6 +159,17 @@ class EmployeeListCreateView(generics.ListCreateAPIView):
 
         teacher = serializer.validated_data.get("teacher")
         staff_profile = serializer.validated_data.get("staff_profile")
+        profile = teacher or staff_profile
+        field = "teacher" if teacher else "staff_profile"
+        if Employee.objects.filter(**{field: profile}).exists():
+            raise serializers.ValidationError({field: "This profile already has an employee record."})
+        if not available_employee_profiles(self.request, "teacher" if teacher else "staff").filter(pk=profile.pk).exists():
+            raise serializers.ValidationError({field: "Choose a profile from the active school."})
+        campus = serializer.validated_data.get("primary_campus") or profile.primary_campus
+        if campus is not None:
+            assert_campus_allowed(self.request.user, campus.pk, request=self.request)
+            if campus.school_id != institution.pk:
+                raise serializers.ValidationError({"primary_campus": "Campus must belong to the selected school."})
 
         # Generate employee number if the client left it blank.
         emp_number = serializer.validated_data.get("employee_number")
@@ -148,6 +199,7 @@ class EmployeeListCreateView(generics.ListCreateAPIView):
 
         serializer.save(
             institution=institution,
+            primary_campus=campus,
             employee_number=emp_number,
             status=serializer.validated_data.get("status", "active"),
         )

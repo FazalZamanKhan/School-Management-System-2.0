@@ -457,7 +457,6 @@ class FeeCategoryListView(generics.ListCreateAPIView):
 
         return queryset
 
-
     def perform_create(self, serializer):
         from django.db import IntegrityError, transaction
 

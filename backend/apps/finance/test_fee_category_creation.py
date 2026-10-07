@@ -25,7 +25,7 @@ class FeeCategoryCreationTests(APITestCase):
 
     def test_invalid_fields_and_duplicate_name_return_validation_errors(self):
         FeeCategory.objects.create(institution=self.school, name="Tuition")
-        for payload in ({"name": " "}, {"name": "Tuition"}, {"name": "New", "frequency": "bad"}):
+        for payload in ({"name": " "}, {"name": "Tuition"}, {"name": " tuition "}, {"name": "New", "frequency": "bad"}):
             with self.subTest(payload=payload):
                 response = self.client.post("/api/finance/categories/", payload, format="json")
                 self.assertEqual(response.status_code, 400, response.content)
@@ -55,3 +55,12 @@ class FeeCategoryCreationTests(APITestCase):
         response = FeeCategoryListView.as_view()(request)
         self.assertEqual(response.status_code, 400)
         self.assertIn("institution", response.data)
+
+    def test_concurrent_duplicate_returns_validation_error(self):
+        from unittest.mock import patch
+        from django.db import IntegrityError
+
+        with patch("apps.finance.serializers.FeeCategorySerializer.create", side_effect=IntegrityError):
+            response = self.client.post("/api/finance/categories/", {"name": "New category"}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("name", response.json())

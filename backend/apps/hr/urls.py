@@ -10,6 +10,7 @@ from .views import (
     EmployeeDocumentDetailView,
     EmployeeDocumentListCreateView,
     EmployeeListCreateView,
+    EmployeeProfileListView,
     EmployeeReviewListCreateView,
     EmployeeWorkloadListCreateView,
     EmploymentEventCreateView,
@@ -66,6 +67,7 @@ from .views import (
 )
 
 urlpatterns = [
+    path("employees/profiles/", EmployeeProfileListView.as_view(), name="employee-profiles"),
     # Department & Designation
     path("departments/", DepartmentListCreateView.as_view(), name="department-list"),
     path("departments/<int:pk>/", DepartmentDetailView.as_view(), name="department-detail"),
