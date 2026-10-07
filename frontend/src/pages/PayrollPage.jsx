@@ -662,6 +662,25 @@ export default function PayrollPage() {
         crumb="Home / Payroll"
         title="Payroll"
         subtitle="Manage teacher salary structures, payroll records, and payslips."
+        action={
+          tab === "structures" ? (
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => openStructureModal("create")}
+            >
+              <Plus size={15} /> Add Salary Structure
+            </button>
+          ) : tab === "records" ? (
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => openRecordModal("create")}
+            >
+              <Plus size={15} /> Add Payroll Record
+            </button>
+          ) : null
+        }
       />
 
       {message && (

@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.permissions import IsAdminRole
+from apps.accounts.access import apply_campus_scope, get_institution
 
 
 EXPORT_CONFIGS = {
@@ -21,8 +22,8 @@ EXPORT_CONFIGS = {
             "date_of_birth", "gender", "status",
         ],
         "related_fields": {
-            "email": "user__email",
-            "phone": "user__phone",
+            "email": "email",
+            "phone": "phone",
             "guardian_name": "guardian__name",
             "guardian_phone": "guardian__phone",
         },
@@ -37,8 +38,8 @@ EXPORT_CONFIGS = {
             "designation", "qualification", "experience_years",
         ],
         "related_fields": {
-            "email": "user__email",
-            "phone": "user__phone",
+            "email": "email",
+            "phone": "phone",
         },
         "select_related": ["user"],
         "filename": "teachers_export",
@@ -77,7 +78,7 @@ EXPORT_CONFIGS = {
         "model_path": "apps.finance.models.Payment",
         "fields": [
             "id", "receipt_number", "payment_date", "payment_method",
-            "amount", "discount", "net_amount", "notes",
+            "amount", "net_amount", "notes",
         ],
         "related_fields": {
             "student_name": "invoice__enrollment__student__first_name",
@@ -135,21 +136,21 @@ EXPORT_CONFIGS = {
         "label": "Exam Results",
         "model_path": "apps.exams.models.StudentResult",
         "fields": [
-            "id", "marks_obtained", "max_marks", "percentage", "grade",
+            "id", "obtained_marks", "percentage", "grade", "is_pass",
         ],
         "related_fields": {
-            "student_name": "enrollment__student__first_name",
-            "admission_number": "enrollment__student__admission_number",
+            "student_name": "student__first_name",
+            "admission_number": "student__admission_number",
             "exam_name": "exam__name",
-            "subject_name": "subject__name",
-            "class_name": "enrollment__class_obj__name",
+            "subject_name": "exam_subject__subject__name",
+            "max_marks": "exam_subject__maximum_marks",
+            "class_name": "exam__class_obj__name",
         },
         "select_related": [
-            "enrollment",
-            "enrollment__student",
+            "student",
             "exam",
-            "subject",
-            "enrollment__class_obj",
+            "exam_subject__subject",
+            "exam__class_obj",
         ],
         "filename": "results_export",
     },
@@ -180,13 +181,13 @@ EXPORT_CONFIGS = {
     },
     "staff": {
         "label": "Staff Directory",
-        "model_path": "apps.hr.models.StaffProfile",
+        "model_path": "apps.accounts.models.StaffProfile",
         "fields": [
             "id", "employee_number", "first_name", "last_name", "gender", "status", "designation", "department",
         ],
         "related_fields": {
-            "email": "user__email",
-            "phone": "user__phone",
+            "email": "email",
+            "phone": "phone",
             "campus": "primary_campus__name",
         },
         "select_related": ["user", "primary_campus"],
@@ -198,10 +199,7 @@ EXPORT_CONFIGS = {
         "fields": [
             "id", "name", "code", "description",
         ],
-        "related_fields": {
-            "class_name": "class_obj__name",
-        },
-        "select_related": ["class_obj"],
+        "related_fields": {},
         "filename": "subjects_export",
     },
     "student_status": {
@@ -215,18 +213,16 @@ EXPORT_CONFIGS = {
             "class_name": "enrollments__class_obj__name",
         },
         "select_related": ["primary_campus"],
+        "prefetch_related": ["enrollments__class_obj"],
         "filename": "student_status_export",
     },
     "fee_categories": {
         "label": "Fee Categories",
         "model_path": "apps.finance.models.FeeCategory",
         "fields": [
-            "id", "name", "code", "description", "amount", "frequency",
+            "id", "name", "description", "frequency", "status",
         ],
-        "related_fields": {
-            "campus": "campus__name",
-        },
-        "select_related": ["campus"],
+        "related_fields": {},
         "filename": "fee_categories_export",
     },
 }
@@ -270,6 +266,7 @@ class DataExportView(APIView):
         fields = config["fields"]
         related = config.get("related_fields", {})
 
+        queryset = _scope_export_queryset(request, queryset, export_key)
         queryset = _apply_filters(request, queryset, export_key)
 
         data_rows = []
@@ -325,7 +322,7 @@ class DataBackupView(APIView):
             if config.get("prefetch_related"):
                 queryset = queryset.prefetch_related(*config["prefetch_related"])
 
-            queryset = queryset[:5000]
+            queryset = _scope_export_queryset(request, queryset, key)
             rows = []
             for obj in queryset:
                 row = {}
@@ -353,36 +350,49 @@ class DataBackupView(APIView):
 def _get_nested(obj, path):
     """Safely traverse a dotted path like 'student__first_name'."""
     current = obj
-    for part in path.split("__"):
+    parts = path.split("__")
+    for index, part in enumerate(parts):
         if current is None:
             return ""
         current = getattr(current, part, None)
         if callable(current):
             current = current()
-    return current or ""
+        if hasattr(current, "all"):
+            remaining = "__".join(parts[index + 1:])
+            return "; ".join(str(_get_nested(item, remaining)) for item in current.all())
+    return current if current is not None else ""
+
+
+def _scope_export_queryset(request, queryset, export_key):
+    """Back up only records belonging to the active school and allowed campuses."""
+    paths = {
+        "students": ("primary_campus_id", "institution_id"),
+        "student_status": ("primary_campus_id", "institution_id"),
+        "teachers": ("primary_campus_id", "institution_id"),
+        "staff": ("primary_campus_id", "institution_id"),
+        "subjects": (None, "institution_id"),
+        "fee_categories": (None, "institution_id"),
+        "invoices": ("enrollment__campus_id", "institution_id"),
+        "fees": ("enrollment__campus_id", "institution_id"),
+        "payments": ("invoice__enrollment__campus_id", "invoice__institution_id"),
+        "attendance": ("campus_id", "academic_year__school_id"),
+        "enrollments": ("campus_id", "academic_year__school_id"),
+        "results": ("exam__campus_id", "exam__academic_year__school_id"),
+    }
+    campus_path, institution_path = paths[export_key]
+    institution = get_institution(request)
+    if institution is None:
+        return queryset.none()
+    queryset = queryset.filter(**{institution_path: institution.pk})
+    return apply_campus_scope(queryset, request, campus_path, institution_field=None)
 
 
 def _apply_filters(request, queryset, export_key):
     """Apply common query params."""
     search = request.query_params.get("search", "").strip()
     status = request.query_params.get("status", "")
-    campus = request.query_params.get("campus", "")
-
     if status and hasattr(queryset.model, "status"):
         queryset = queryset.filter(status=status)
-
-    if campus:
-        if export_key in ("students", "enrollments"):
-            queryset = queryset.filter(
-                **{"enrollments__campus_id": campus} if export_key == "students"
-                else {"campus_id": campus}
-            )
-        elif export_key in ("invoices", "payments"):
-            queryset = queryset.filter(
-                **{"enrollment__campus_id": campus}
-            )
-        elif export_key == "attendance":
-            queryset = queryset.filter(campus_id=campus)
 
     if search:
         if export_key == "students":
@@ -397,7 +407,7 @@ def _apply_filters(request, queryset, export_key):
             queryset = queryset.filter(
                 Q(first_name__icontains=search)
                 | Q(last_name__icontains=search)
-                | Q(employee_id__icontains=search)
+                | Q(employee_number__icontains=search)
             )
 
     return queryset

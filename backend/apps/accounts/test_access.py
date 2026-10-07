@@ -670,6 +670,7 @@ class PermissionModelTests(TestCase):
 
 class RolePermissionTests(TestCase):
     def setUp(self):
+        seed_default_permissions()
         self.school = School.objects.create(name="Test School")
         self.campus = Campus.objects.create(school=self.school, name="Main Campus")
 
@@ -738,6 +739,7 @@ class RolePermissionTests(TestCase):
 
 class UserPermissionTests(TestCase):
     def setUp(self):
+        seed_default_permissions()
         self.school = School.objects.create(name="Test School")
         self.campus = Campus.objects.create(school=self.school, name="Main Campus")
         
@@ -815,6 +817,7 @@ class UserPermissionTests(TestCase):
 
 class UserPermissionEffectiveTests(TestCase):
     def setUp(self):
+        seed_default_permissions()
         self.school = School.objects.create(name="Test School")
         self.campus = Campus.objects.create(school=self.school, name="Main Campus")
         

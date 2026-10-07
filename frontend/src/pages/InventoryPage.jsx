@@ -58,6 +58,7 @@ export default function InventoryPage() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [formValidationErrors, setFormValidationErrors] = useState({});
   const [form, setForm] = useState(EMPTY_ASSET_FORM);
 
   const [campuses, setCampuses] = useState([]);
@@ -100,7 +101,13 @@ export default function InventoryPage() {
     const query = params.toString() ? `?${params.toString()}` : "";
 
     fetch(`${BASE}${config.url}${query}`, { credentials: "include" })
-      .then((response) => (response.ok ? response.json() : { results: [] }))
+      .then(async (response) => {
+        if (!response.ok) {
+          const detail = await response.json().catch(() => null);
+          throw new Error(detail?.detail || detail?.message || `Unable to load ${key} (${response.status}).`);
+        }
+        return response.json();
+      })
       .then((json) => {
         setData((previous) => ({
           ...previous,
@@ -116,6 +123,7 @@ export default function InventoryPage() {
 
   const switchTab = (key) => {
     setTab(key);
+    setError("");
 
     if (data[key] === undefined) {
       load(key);
@@ -127,22 +135,26 @@ export default function InventoryPage() {
   const handleChange = (event) => {
     const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+    setFormValidationErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
   const closeForm = () => {
     setShowForm(false);
     setEditing(null);
     setForm(EMPTY_ASSET_FORM);
+    setFormValidationErrors({});
   };
 
   const openAddAsset = () => {
     setEditing(null);
     setForm(EMPTY_ASSET_FORM);
+    setFormValidationErrors({});
     setShowForm(true);
   };
 
   const openEditAsset = (asset) => {
     setEditing(asset);
+    setFormValidationErrors({});
     setForm({
       name: asset.name || "",
       campus: asset.campus ?? "",
@@ -162,6 +174,18 @@ export default function InventoryPage() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    const quantity = Number(form.quantity);
+    const unitCost = Number(form.unit_cost);
+    const errors = {};
+    if (form.quantity === "" || !Number.isInteger(quantity) || quantity < 0) {
+      errors.quantity = "Enter a whole quantity of zero or more.";
+    }
+    if (form.unit_cost === "" || !Number.isFinite(unitCost) || unitCost < 0) {
+      errors.unit_cost = "Enter a unit cost of zero or more.";
+    }
+    setFormValidationErrors(errors);
+    if (Object.keys(errors).length) return;
+
     setSaving(true);
 
     const payload = {
@@ -170,9 +194,9 @@ export default function InventoryPage() {
       code: form.code,
       category: form.category || null,
       supplier: form.supplier || null,
-      quantity: Number(form.quantity) || 1,
+      quantity,
       unit: form.unit,
-      unit_cost: form.unit_cost || "0",
+      unit_cost: form.unit_cost,
       purchase_date: form.purchase_date || null,
       location: form.location,
       status: form.status,
@@ -464,7 +488,7 @@ export default function InventoryPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} noValidate>
               <div className="form-section">
                 <h4>Asset Details</h4>
                 <div className="form-grid">
@@ -510,7 +534,8 @@ export default function InventoryPage() {
 
                   <label>
                     Quantity
-                    <input type="number" name="quantity" value={form.quantity} onChange={handleChange} min="0" required />
+                    <input type="number" name="quantity" value={form.quantity} onChange={handleChange} min="0" step="1" required aria-invalid={Boolean(formValidationErrors.quantity)} />
+                    {formValidationErrors.quantity && <span role="alert" className="field-error">{formValidationErrors.quantity}</span>}
                   </label>
 
                   <label>
@@ -520,7 +545,8 @@ export default function InventoryPage() {
 
                   <label>
                     Unit Cost
-                    <input type="number" name="unit_cost" value={form.unit_cost} onChange={handleChange} min="0" step="0.01" />
+                    <input type="number" name="unit_cost" value={form.unit_cost} onChange={handleChange} min="0" step="0.01" required aria-invalid={Boolean(formValidationErrors.unit_cost)} />
+                    {formValidationErrors.unit_cost && <span role="alert" className="field-error">{formValidationErrors.unit_cost}</span>}
                   </label>
 
                   <label>

@@ -100,6 +100,21 @@ export default function AlumniPage() {
 
   const submit = (event) => {
     event.preventDefault();
+    if (!form.full_name.trim()) {
+      setFormError("Enter a full name.");
+      return;
+    }
+    const emailInput = event.currentTarget.querySelector('input[type="email"]');
+    if (emailInput && !emailInput.checkValidity()) {
+      setFormError("Enter a valid email address.");
+      return;
+    }
+    const year = Number(form.batch_year);
+    const currentYear = new Date().getFullYear();
+    if (!Number.isInteger(year) || year < 1980 || year > currentYear) {
+      setFormError(`Batch year must be between 1980 and ${currentYear}.`);
+      return;
+    }
     setSaving(true);
     setFormError("");
 
@@ -108,7 +123,7 @@ export default function AlumniPage() {
     apiFetch(isEditing ? `${BASE}${editing.id}/` : BASE, {
       method: isEditing ? "PATCH" : "POST",
       headers: authHeaders({ "Content-Type": "application/json" }),
-      body: JSON.stringify(form),
+      body: JSON.stringify({ ...form, batch_year: year }),
     })
       .then(() => {
         setEditing(null);
@@ -147,7 +162,7 @@ export default function AlumniPage() {
       {showForm && (
         <div className="panel">
           <PanelHeader title={editing ? "Edit alumni record" : "Add alumni record"} />
-          <form onSubmit={submit} className="filter-row">
+          <form onSubmit={submit} className="filter-row" noValidate>
             <input
               required
               aria-label="Full name"
@@ -159,6 +174,9 @@ export default function AlumniPage() {
             <input
               required
               type="number"
+              min="1980"
+              max={new Date().getFullYear()}
+              step="1"
               aria-label="Batch year"
               placeholder="Batch year *"
               value={form.batch_year}

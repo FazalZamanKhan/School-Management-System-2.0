@@ -30,10 +30,10 @@ class FeeCollectionReportView(AggregateReportView):
             "invoice__enrollment__section",
             "invoice__student",
             "invoice__academic_year",
-        )
+        ).prefetch_related("refunds", "reversals")
 
     def get_queryset(self, request):
-        queryset = super().get_queryset(request)
+        queryset = self.get_base_queryset(request)
         queryset = apply_campus_scope(queryset, request, "invoice__enrollment__campus_id")
 
         period = request.query_params.get("period", "monthly")
@@ -67,40 +67,40 @@ class FeeCollectionReportView(AggregateReportView):
 
     def get_summary(self, queryset, request):
         period = request.query_params.get("period", "monthly")
+        payments = list(queryset)
+        total_collected = sum((p.net_amount for p in payments), Decimal("0"))
+        by_method = {}
+        by_campus = {}
+        by_class = {}
 
-        total_collected = sum(p.net_amount for p in queryset)
-        total_payments = queryset.count()
-
-        by_method = queryset.values("payment_method").annotate(
-            count=Count("id"),
-            collected=Sum("net_amount"),
-        )
-
-        by_campus = queryset.values("invoice__enrollment__campus__name").annotate(
-            count=Count("id"),
-            collected=Sum("net_amount"),
-        )
-
-        by_class = queryset.values("invoice__enrollment__class_obj__name").annotate(
-            count=Count("id"),
-            collected=Sum("net_amount"),
-        )
+        for payment in payments:
+            net_amount = payment.net_amount
+            campus = payment.invoice.enrollment.campus.name
+            class_name = payment.invoice.enrollment.class_obj.name
+            for bucket, key in (
+                (by_method, payment.payment_method),
+                (by_campus, campus),
+                (by_class, class_name),
+            ):
+                item = bucket.setdefault(key, {"count": 0, "collected": Decimal("0")})
+                item["count"] += 1
+                item["collected"] += net_amount
 
         return {
             "period": period,
             "total_collected": quantize(total_collected),
-            "total_payments": total_payments,
+            "total_payments": len(payments),
             "by_method": [
-                {"method": m["payment_method"], "count": m["count"], "collected": quantize(m["collected"])}
-                for m in by_method
+                {"method": key, "count": item["count"], "collected": quantize(item["collected"])}
+                for key, item in by_method.items()
             ],
             "by_campus": [
-                {"campus": c["invoice__enrollment__campus__name"], "count": c["count"], "collected": quantize(c["collected"])}
-                for c in by_campus
+                {"campus": key, "count": item["count"], "collected": quantize(item["collected"])}
+                for key, item in by_campus.items()
             ],
             "by_class": [
-                {"class": c["invoice__enrollment__class_obj__name"], "count": c["count"], "collected": quantize(c["collected"])}
-                for c in by_class
+                {"class": key, "count": item["count"], "collected": quantize(item["collected"])}
+                for key, item in by_class.items()
             ],
         }
 
@@ -117,7 +117,7 @@ class FeeCollectionReportView(AggregateReportView):
                 "section": payment.invoice.enrollment.section.name if payment.invoice.enrollment.section else "-",
                 "payment_method": payment.get_payment_method_display(),
                 "amount": quantize(payment.amount),
-                "discount": quantize(payment.discount),
+                "discount": quantize(Decimal("0")),
                 "net_amount": quantize(payment.net_amount),
                 "reference": payment.reference,
             })
@@ -140,7 +140,7 @@ class FeeStatusReportView(AggregateReportView):
         ).prefetch_related("items", "payments", "concessions")
 
     def get_queryset(self, request):
-        queryset = super().get_queryset(request)
+        queryset = self.get_base_queryset(request)
         queryset = apply_campus_scope(queryset, request, "enrollment__campus_id")
 
         status_type = request.query_params.get("status_type", "outstanding")
@@ -246,7 +246,7 @@ class FeeAnalyticsReportView(AggregateReportView):
         ).prefetch_related("items", "payments", "concessions")
 
     def get_queryset(self, request):
-        queryset = super().get_queryset(request)
+        queryset = self.get_base_queryset(request)
         queryset = apply_campus_scope(queryset, request, "enrollment__campus_id")
 
         date_from = request.query_params.get("date_from")
@@ -409,7 +409,7 @@ class FinanceReportView(AggregateReportView):
         ).prefetch_related("lines__account")
 
     def get_queryset(self, request):
-        queryset = super().get_queryset(request)
+        queryset = apply_campus_scope(self.get_base_queryset(request), request, "campus_id")
 
         report_type = request.query_params.get("report_type", "income")
         self.report_type = report_type

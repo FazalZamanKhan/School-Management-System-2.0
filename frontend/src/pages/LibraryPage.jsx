@@ -85,7 +85,13 @@ export default function LibraryPage() {
     }
 
     fetch(`${BOOKS_URL}?${params.toString()}`, { credentials: "include" })
-      .then((response) => (response.ok ? response.json() : { results: [] }))
+      .then(async (response) => {
+        if (!response.ok) {
+          const detail = await response.json().catch(() => null);
+          throw new Error(detail?.detail || detail?.message || `Unable to load books (${response.status}).`);
+        }
+        return response.json();
+      })
       .then((data) => {
         setBooks(data.results || data);
         setLoading(false);
@@ -101,7 +107,13 @@ export default function LibraryPage() {
     setError("");
 
     fetch(ISSUES_URL, { credentials: "include" })
-      .then((response) => (response.ok ? response.json() : { results: [] }))
+      .then(async (response) => {
+        if (!response.ok) {
+          const detail = await response.json().catch(() => null);
+          throw new Error(detail?.detail || detail?.message || `Unable to load book issues (${response.status}).`);
+        }
+        return response.json();
+      })
       .then((data) => {
         setIssues(data.results || data);
         setLoading(false);
@@ -115,6 +127,7 @@ export default function LibraryPage() {
   const switchTab = (next) => {
     setTab(next);
     setMessage("");
+    setError("");
 
     if (next === "books" && books === null) {
       loadBooks();

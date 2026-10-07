@@ -1,7 +1,7 @@
 """HR and Payroll Reports."""
 
 from decimal import Decimal
-from django.db.models import Count, Q, Case, When, Value, IntegerField, Sum, Avg, Max, Min
+from django.db.models import Count, Q, Case, When, Value, IntegerField, Sum, Avg, Max, Min, Prefetch
 from django.utils import timezone
 from rest_framework.response import Response
 
@@ -20,13 +20,27 @@ class EmployeeMasterReportView(AggregateReportView):
 
     def get_base_queryset(self, request):
         from apps.hr.models import Employee
+        from apps.payroll.models import SalaryStructure
+
         return Employee.objects.select_related(
-            "user", "department", "designation", "campus", "employment_type"
+            "teacher",
+            "staff_profile",
+            "department",
+            "designation",
+            "primary_campus",
+        ).prefetch_related(
+            Prefetch(
+                "salary_structures",
+                queryset=SalaryStructure.objects.filter(
+                    status="active", effective_date__lte=timezone.localdate()
+                ).order_by("-effective_date"),
+                to_attr="active_salary_structures",
+            )
         )
 
     def get_queryset(self, request):
-        queryset = super().get_queryset(request)
-        queryset = apply_campus_scope(queryset, request, "campus_id")
+        queryset = self.get_base_queryset(request)
+        queryset = apply_campus_scope(queryset, request, "primary_campus_id")
 
         status = request.query_params.get("status")
         if status:
@@ -42,7 +56,7 @@ class EmployeeMasterReportView(AggregateReportView):
         total = queryset.count()
         by_status = queryset.values("status").annotate(count=Count("id"))
         by_department = queryset.values("department__name").annotate(count=Count("id"))
-        by_campus = queryset.values("campus__name").annotate(count=Count("id"))
+        by_campus = queryset.values("primary_campus__name").annotate(count=Count("id"))
 
         return {
             "total_employees": total,
@@ -54,18 +68,20 @@ class EmployeeMasterReportView(AggregateReportView):
     def get_detail_rows(self, queryset, request):
         rows = []
         for emp in queryset:
+            profile = emp.staff_profile or emp.teacher
+            salary_structure = emp.active_salary_structures[0] if emp.active_salary_structures else None
             rows.append({
-                "employee_id": emp.employee_id,
+                "employee_id": emp.employee_number,
                 "full_name": emp.full_name,
-                "email": emp.user.email if emp.user else "-",
-                "phone": emp.phone,
+                "email": profile.email if profile and profile.email else "-",
+                "phone": profile.phone if profile and profile.phone else "-",
                 "department": emp.department.name if emp.department else "-",
                 "designation": emp.designation.name if emp.designation else "-",
-                "campus": emp.campus.name if emp.campus else "-",
-                "employment_type": emp.employment_type.name if emp.employment_type else "-",
+                "campus": emp.primary_campus.name if emp.primary_campus else "-",
+                "employment_type": emp.get_employment_type_display(),
                 "joining_date": emp.joining_date,
                 "status": emp.get_status_display(),
-                "basic_salary": str(emp.basic_salary) if emp.basic_salary else "0",
+                "basic_salary": str(salary_structure.basic_salary) if salary_structure else "0",
             })
         return rows
 
@@ -75,15 +91,28 @@ class HRAttendanceReportView(AggregateReportView):
 
     permission_classes = [IsAccountantRole]
     report_definition_key = "hr_attendance"
-    model = "apps.hr.models.Attendance"
+    model = "apps.accounts.models.StaffAttendance"
 
     def get_base_queryset(self, request):
-        from apps.hr.models import Attendance
-        return Attendance.objects.select_related("employee", "employee__user", "employee__campus")
+        from apps.accounts.models import StaffAttendance
+
+        return StaffAttendance.objects.filter(
+            staff__employee_record__isnull=False,
+        ).select_related(
+            "staff",
+            "staff__employee_record",
+            "staff__employee_record__department",
+            "staff__employee_record__primary_campus",
+        )
 
     def get_queryset(self, request):
-        queryset = super().get_queryset(request)
-        queryset = apply_campus_scope(queryset, request, "employee__campus_id")
+        queryset = self.get_base_queryset(request)
+        queryset = apply_campus_scope(
+            queryset,
+            request,
+            "staff__employee_record__primary_campus_id",
+            "institution_id",
+        )
 
         date_from = request.query_params.get("date_from")
         date_to = request.query_params.get("date_to")
@@ -95,7 +124,7 @@ class HRAttendanceReportView(AggregateReportView):
 
         employee = request.query_params.get("employee")
         if employee:
-            queryset = queryset.filter(employee_id=employee)
+            queryset = queryset.filter(staff__employee_record__id=employee)
 
         return queryset
 
@@ -118,12 +147,13 @@ class HRAttendanceReportView(AggregateReportView):
     def get_detail_rows(self, queryset, request):
         rows = []
         for record in queryset:
+            employee = record.staff.employee_record
             rows.append({
                 "date": record.date,
-                "employee_id": record.employee.employee_id,
-                "employee": record.employee.full_name,
-                "department": record.employee.department.name if record.employee.department else "-",
-                "campus": record.employee.campus.name if record.employee.campus else "-",
+                "employee_id": employee.employee_number,
+                "employee": employee.full_name,
+                "department": employee.department.name if employee.department else "-",
+                "campus": employee.primary_campus.name if employee.primary_campus else "-",
                 "status": record.get_status_display(),
                 "check_in": record.check_in,
                 "check_out": record.check_out,
@@ -141,12 +171,22 @@ class HRLeaveReportView(AggregateReportView):
     def get_base_queryset(self, request):
         from apps.hr.models import LeaveRequest
         return LeaveRequest.objects.select_related(
-            "employee", "employee__user", "employee__campus", "leave_type", "reviewed_by"
+            "employee",
+            "employee__teacher",
+            "employee__staff_profile",
+            "employee__primary_campus",
+            "leave_type",
+            "reviewed_by",
         )
 
     def get_queryset(self, request):
-        queryset = super().get_queryset(request)
-        queryset = apply_campus_scope(queryset, request, "employee__campus_id")
+        queryset = self.get_base_queryset(request)
+        queryset = apply_campus_scope(
+            queryset,
+            request,
+            "employee__primary_campus_id",
+            "employee__institution_id",
+        )
 
         status = request.query_params.get("status")
         if status:
@@ -171,8 +211,8 @@ class HRLeaveReportView(AggregateReportView):
         by_status = queryset.values("status").annotate(count=Count("id"))
         by_type = queryset.values("leave_type__name").annotate(count=Count("id"))
 
-        total_days = sum(l.days for l in queryset)
-        approved_days = sum(l.days for l in queryset.filter(status="approved"))
+        total_days = sum(l.total_days for l in queryset)
+        approved_days = sum(l.total_days for l in queryset.filter(status="approved"))
 
         return {
             "total_requests": total,
@@ -186,12 +226,12 @@ class HRLeaveReportView(AggregateReportView):
         rows = []
         for leave in queryset:
             rows.append({
-                "employee_id": leave.employee.employee_id,
+                "employee_id": leave.employee.employee_number,
                 "employee": leave.employee.full_name,
                 "leave_type": leave.leave_type.name if leave.leave_type else "-",
                 "start_date": leave.start_date,
                 "end_date": leave.end_date,
-                "days": leave.days,
+                "days": leave.total_days,
                 "reason": leave.reason,
                 "status": leave.get_status_display(),
                 "reviewed_by": leave.reviewed_by.get_full_name() if leave.reviewed_by else "-",
