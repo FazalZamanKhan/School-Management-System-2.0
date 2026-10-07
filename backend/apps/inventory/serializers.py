@@ -177,6 +177,11 @@ class AssetSerializer(serializers.ModelSerializer):
             "notes",
         ]
 
+    def validate_unit_cost(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Unit cost must be zero or greater.")
+        return value
+
 
 class AssetAssignmentSerializer(serializers.ModelSerializer):
     asset_name = serializers.CharField(
