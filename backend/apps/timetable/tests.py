@@ -360,3 +360,33 @@ class TimetableModelTests(TestCase):
 		self.assertFalse(
 			find_conflicts(academic_year=self.year)
 		)
+
+	def test_generate_api_rejects_lessons_outside_range(self):
+		user = get_user_model().objects.create_user(
+			username="timetable-generator",
+			email="timetable-generator@test.edu",
+			password="TestPass123!",
+		)
+		membership = InstitutionMembership.objects.create(
+			user=user,
+			institution=self.school,
+		)
+		RoleAssignment.objects.create(
+			membership=membership,
+			role=Role.ADMIN,
+		)
+
+		client = APIClient()
+		client.force_authenticate(user=user)
+		response = client.post(
+			reverse("timetable-generate"),
+			{
+				"campus": self.campus.pk,
+				"lessons_per_subject": 21,
+				"confirm": True,
+			},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 400)
+		self.assertIn("lessons_per_subject", response.data)

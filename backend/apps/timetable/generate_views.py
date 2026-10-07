@@ -105,9 +105,18 @@ class TimetableGenerateView(APIView):
                 )
 
         try:
-            lessons = max(1, min(int(request.data.get("lessons_per_subject", 5)), 20))
+            lessons = int(request.data.get("lessons_per_subject", 5))
         except (TypeError, ValueError):
-            lessons = 5
+            return Response(
+                {"lessons_per_subject": "Lessons per subject per week must be a number between 1 and 20."},
+                status=400,
+            )
+
+        if lessons < 1 or lessons > 20:
+            return Response(
+                {"lessons_per_subject": "Lessons per subject per week must be between 1 and 20."},
+                status=400,
+            )
 
         days = request.data.get("days") or [
             "monday", "tuesday", "wednesday", "thursday", "friday",
