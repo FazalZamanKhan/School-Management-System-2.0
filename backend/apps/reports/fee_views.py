@@ -409,7 +409,7 @@ class FinanceReportView(AggregateReportView):
         ).prefetch_related("lines__account")
 
     def get_queryset(self, request):
-        queryset = super().get_queryset(request)
+        queryset = apply_campus_scope(self.get_base_queryset(request), request, "campus_id")
 
         report_type = request.query_params.get("report_type", "income")
         self.report_type = report_type
