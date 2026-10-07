@@ -8,8 +8,10 @@ from django.http import HttpResponse
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.negotiation import DefaultContentNegotiation
 
 from apps.accounts.permissions import IsAdminRole
+from apps.accounts.access import apply_campus_scope, get_institution
 
 
 EXPORT_CONFIGS = {
@@ -37,8 +39,8 @@ EXPORT_CONFIGS = {
             "designation", "qualification", "experience_years",
         ],
         "related_fields": {
-            "email": "user__email",
-            "phone": "user__phone",
+            "email": "email",
+            "phone": "phone",
         },
         "select_related": ["user"],
         "filename": "teachers_export",
@@ -198,10 +200,7 @@ EXPORT_CONFIGS = {
         "fields": [
             "id", "name", "code", "description",
         ],
-        "related_fields": {
-            "class_name": "class_obj__name",
-        },
-        "select_related": ["class_obj"],
+        "related_fields": {},
         "filename": "subjects_export",
     },
     "student_status": {
@@ -246,8 +245,17 @@ class DataExportListView(APIView):
         return Response(exports)
 
 
+class DownloadContentNegotiation(DefaultContentNegotiation):
+    def filter_renderers(self, renderers, format):
+        # CSV is a file format handled by the view, not a DRF renderer format.
+        if format == "csv":
+            return renderers
+        return super().filter_renderers(renderers, format)
+
+
 class DataExportView(APIView):
     permission_classes = [IsAuthenticated, IsAdminRole]
+    content_negotiation_class = DownloadContentNegotiation
 
     def get(self, request, export_key):
         if export_key not in EXPORT_CONFIGS:
@@ -364,6 +372,18 @@ def _get_nested(obj, path):
 
 def _apply_filters(request, queryset, export_key):
     """Apply common query params."""
+    scope_fields = {
+        "teachers": ("primary_campus_id", "institution_id"),
+        "subjects": (None, "institution_id"),
+        "enrollments": ("campus_id", "academic_year__school_id"),
+    }
+    if export_key in scope_fields:
+        campus_path, institution_path = scope_fields[export_key]
+        institution = get_institution(request)
+        if institution is None:
+            return queryset.none()
+        queryset = queryset.filter(**{institution_path: institution.pk})
+        queryset = apply_campus_scope(queryset, request, campus_path, institution_field=None)
     search = request.query_params.get("search", "").strip()
     status = request.query_params.get("status", "")
     campus = request.query_params.get("campus", "")
@@ -397,7 +417,7 @@ def _apply_filters(request, queryset, export_key):
             queryset = queryset.filter(
                 Q(first_name__icontains=search)
                 | Q(last_name__icontains=search)
-                | Q(employee_id__icontains=search)
+                | Q(employee_number__icontains=search)
             )
 
     return queryset

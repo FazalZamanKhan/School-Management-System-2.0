@@ -21,6 +21,7 @@ export default function ExportPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [downloading, setDownloading] = useState(null);
+  const [downloadError, setDownloadError] = useState("");
 
   const fetchExports = useCallback(async () => {
     setLoading(true);
@@ -40,10 +41,11 @@ export default function ExportPage() {
 
   const handleExport = async (key, filename, format) => {
     setDownloading(key);
+    setDownloadError("");
     try {
       await apiDownload(`${EXPORT_URL}/${key}/?format=${format}`, `${filename}.${format}`);
-    } catch {
-      // ignore
+    } catch (err) {
+      setDownloadError(err.message || "Failed to download the export.");
     } finally {
       setDownloading(null);
     }
@@ -67,6 +69,8 @@ export default function ExportPage() {
         title="Data Export & Backup"
         subtitle="Export your data in CSV or JSON format, or download a full backup."
       />
+
+      {downloadError && <div className="state-card error" role="alert">{downloadError}</div>}
 
       <StateArea loading={loading} error={error} onRetry={fetchExports}>
         {/* Full Backup */}
