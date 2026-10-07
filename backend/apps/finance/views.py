@@ -5,7 +5,7 @@ from django.db import transaction
 from django.db.models import Q, Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
-from rest_framework import generics, status
+from rest_framework import generics, serializers, status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -440,7 +440,7 @@ class PaymentListView(generics.ListAPIView):
         return queryset
 
 
-class FeeCategoryListView(generics.ListAPIView):
+class FeeCategoryListView(generics.ListCreateAPIView):
     serializer_class = FeeCategorySerializer
     permission_classes = [IsAccountantRole]
     pagination_class = None
@@ -456,6 +456,19 @@ class FeeCategoryListView(generics.ListAPIView):
             queryset = queryset.filter(status=status)
 
         return queryset
+
+
+    def perform_create(self, serializer):
+        from django.db import IntegrityError, transaction
+
+        institution = getattr(self.request, "institution", None)
+        if institution is None:
+            raise serializers.ValidationError({"institution": "Select a school before creating a fee category."})
+        try:
+            with transaction.atomic():
+                serializer.save(institution=institution)
+        except IntegrityError:
+            raise serializers.ValidationError({"name": "A fee category with this name already exists in this school."})
 
 
 class FeeStructureListView(generics.ListCreateAPIView):

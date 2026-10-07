@@ -20,7 +20,8 @@ import {
 } from "./ui";
 import { formatCurrency, formatDate } from "./format";
 import { useLang } from "../i18n";
-import { jsonHeaders } from "../api";
+import { apiFetch, jsonHeaders } from "../api";
+import { Modal } from "../components/Modal";
 
 const INVOICES_API_URL = "/api/finance/invoices/";
 const PAYMENTS_API_URL = "/api/finance/payments/";
@@ -975,6 +976,74 @@ function AccountingOverview() {
   );
 }
 
+function FeeCategoryModal({ onClose, onSaved }) {
+  const [form, setForm] = useState({ name: "", description: "", frequency: "monthly", status: "active" });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = async (event) => {
+    event.preventDefault();
+    setError("");
+    if (!form.name.trim()) {
+      setError("Enter a fee category name.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await apiFetch(CATEGORIES_API_URL, {
+        method: "POST", headers: jsonHeaders(),
+        body: JSON.stringify({ ...form, name: form.name.trim() }),
+      }, "Unable to create the fee category.");
+      onSaved();
+      onClose();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal isOpen onClose={() => { if (!saving) onClose(); }} title="Add Fee Category">
+      {error && <div className="state-card error" role="alert">{error}</div>}
+      <form onSubmit={submit}>
+        <div className="form-grid">
+          <label>Name
+            <input required maxLength={100} value={form.name} disabled={saving}
+              onChange={(event) => setForm({ ...form, name: event.target.value })} />
+          </label>
+          <label>Frequency
+            <select value={form.frequency} disabled={saving}
+              onChange={(event) => setForm({ ...form, frequency: event.target.value })}>
+              <option value="one_time">One Time</option>
+              <option value="monthly">Monthly</option>
+              <option value="term">Per Term</option>
+              <option value="annual">Annual</option>
+            </select>
+          </label>
+          <label>Description
+            <textarea value={form.description} disabled={saving}
+              onChange={(event) => setForm({ ...form, description: event.target.value })} />
+          </label>
+          <label>Status
+            <select value={form.status} disabled={saving}
+              onChange={(event) => setForm({ ...form, status: event.target.value })}>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </label>
+        </div>
+        <div className="modal-footer">
+          <button type="button" className="secondary-button" disabled={saving} onClick={onClose}>Cancel</button>
+          <button type="submit" className="primary-button" disabled={saving}>
+            {saving ? "Saving..." : "Create Fee Category"}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 export default function FinancePage() {
   const { t } = useLang();
   const [search, setSearch] = useState("");
@@ -983,6 +1052,7 @@ export default function FinancePage() {
   const invoices = useApiList(INVOICES_API_URL);
   const payments = useApiList(PAYMENTS_API_URL);
   const categories = useApiList(CATEGORIES_API_URL);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
 
   const [dashboard, setDashboard] = useState(null);
   const [breakdown, setBreakdown] = useState(null);
@@ -1310,6 +1380,9 @@ export default function FinancePage() {
           title="Fee Categories"
           subtitle="categories configured"
           count={categories.count}
+          action={<button type="button" className="primary-button" onClick={() => setShowCategoryModal(true)}>
+            <Plus size={15} /> Add Fee Category
+          </button>}
         />
 
         <StateArea loading={categories.loading} error={categories.error}>
@@ -1336,6 +1409,11 @@ export default function FinancePage() {
       </div>
 
       <FeeStructureSection categories={categories.rows} />
+
+      {showCategoryModal && <FeeCategoryModal
+        onClose={() => setShowCategoryModal(false)}
+        onSaved={() => categories.refresh(new URLSearchParams({ page: "1" }))}
+      />}
 
       {paymentInvoice && (
         <PaymentModal
