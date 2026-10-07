@@ -31,7 +31,9 @@ class EmployeeMasterReportView(AggregateReportView):
         ).prefetch_related(
             Prefetch(
                 "salary_structures",
-                queryset=SalaryStructure.objects.filter(status="active").order_by("-effective_date"),
+                queryset=SalaryStructure.objects.filter(
+                    status="active", effective_date__lte=timezone.localdate()
+                ).order_by("-effective_date"),
                 to_attr="active_salary_structures",
             )
         )

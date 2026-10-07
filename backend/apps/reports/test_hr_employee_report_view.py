@@ -1,7 +1,8 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from apps.accounts.models import InstitutionMembership, Role, RoleAssignment, StaffProfile
@@ -89,3 +90,22 @@ class EmployeeMasterReportViewTests(APITestCase):
         self.assertEqual(body["results"][0]["campus"], "Main Campus")
         self.assertEqual(body["results"][0]["employment_type"], "Permanent")
         self.assertEqual(Decimal(body["results"][0]["basic_salary"]), Decimal("75000"))
+
+    def test_employee_report_uses_salary_effective_today(self):
+        employee = Employee.objects.get(employee_number="EMP-001")
+        SalaryStructure.objects.create(
+            institution=self.school,
+            employee=employee,
+            name="Future Salary",
+            code="FUTURE-001",
+            basic_salary=Decimal("95000.00"),
+            effective_date=timezone.localdate() + timedelta(days=30),
+        )
+
+        response = self.client.get("/api/reports/hr/employees/")
+
+        self.assertEqual(response.status_code, 200, response.content[:500])
+        self.assertEqual(
+            Decimal(response.json()["results"][0]["basic_salary"]),
+            Decimal("75000"),
+        )
