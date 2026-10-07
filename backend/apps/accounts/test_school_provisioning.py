@@ -26,6 +26,8 @@ from apps.accounts.models import (
 from apps.audit.models import AuditLog
 from apps.schools.models import School, SchoolSettings
 from apps.schools.services import school_code_for_name
+from apps.accounts.access import user_allowed_campus_ids
+from apps.accounts.services import provision_campus_with_admin
 
 User = get_user_model()
 
@@ -36,6 +38,29 @@ CREATE_URL = "/api/auth/super-admin/schools/create/"
 LIST_URL = "/api/auth/super-admin/schools/"
 SWITCH_URL = "/api/auth/super-admin/switch/"
 ACTIVE_INSTITUTION_URL = "/api/auth/active-institution/"
+
+
+class CampusAdminProvisioningTests(TestCase):
+    def test_provisioned_admin_can_access_own_campus(self):
+        school = School.objects.create(name="Campus Provisioning School")
+        other_school = School.objects.create(name="Other School")
+        campus, admin, _, _ = provision_campus_with_admin(
+            {"school": school, "name": "Main Campus"},
+            {"email": "campus-admin@example.test"},
+            school=other_school,
+        )
+
+        self.assertTrue(
+            RoleAssignment.objects.filter(
+                membership__user=admin,
+                role=Role.CAMPUS_ADMIN,
+                campus=campus,
+            ).exists()
+        )
+        self.assertTrue(
+            InstitutionMembership.objects.filter(user=admin, institution=school).exists()
+        )
+        self.assertEqual(user_allowed_campus_ids(admin, institution=school), {campus.pk})
 
 
 class ProvisioningBase(TestCase):

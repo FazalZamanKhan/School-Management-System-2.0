@@ -125,7 +125,7 @@ function SchoolDetail({
     schoolAdminsLoading,
     schoolAdminsError,
     assignSchoolAdminForm,
-    setAssignSchoolAdminForm,
+    onAssignSchoolAdminFormChange,
     assignSchoolAdminSaving,
     handleAssignSchoolAdmin,
     handleRemoveSchoolAdmin,
@@ -247,7 +247,7 @@ function SchoolDetail({
                     type="number"
                     placeholder="e.g. 42"
                     value={assignSchoolAdminForm.user_id}
-                    onChange={(e) => setAssignSchoolAdminForm({ user_id: e.target.value })}
+                    onChange={(e) => onAssignSchoolAdminFormChange({ user_id: e.target.value })}
                   />
                 </label>
                 <button
@@ -330,7 +330,7 @@ export default function TenantsPage() {
   const handleAssignSchoolAdmin = async (schoolId) => {
     if (!assignSchoolAdminForm.user_id) return;
     setAssignSchoolAdminSaving(true);
-    setError("");
+    setSchoolAdminsError("");
     try {
       await apiFetch(`/api/schools/tenants/${schoolId}/assign_admin/`, {
         method: "POST",
@@ -342,7 +342,7 @@ export default function TenantsPage() {
       setAssignSchoolAdminForm({ user_id: "" });
       await fetchSchoolAdmins(schoolId);
     } catch (err) {
-      setError(err.message);
+      setSchoolAdminsError(err.message);
     } finally {
       setAssignSchoolAdminSaving(false);
     }
@@ -354,7 +354,7 @@ export default function TenantsPage() {
     );
     if (!confirmed) return;
     setAssignSchoolAdminSaving(true);
-    setError("");
+    setSchoolAdminsError("");
     try {
       // We need to know the school ID - get it from detail
       const schoolId = detail?.id;
@@ -366,7 +366,7 @@ export default function TenantsPage() {
       });
       await fetchSchoolAdmins(schoolId);
     } catch (err) {
-      setError(err.message);
+      setSchoolAdminsError(err.message);
     } finally {
       setAssignSchoolAdminSaving(false);
     }
@@ -551,6 +551,9 @@ export default function TenantsPage() {
   const openDetail = (tenant) => {
     setEditingModules(null);
     setEditForm(null);
+    setSchoolAdmins(null);
+    setSchoolAdminsError("");
+    setAssignSchoolAdminForm({ user_id: "" });
     setDetail(tenant);
     fetchSchoolAdmins(tenant.id);
   };
@@ -803,7 +806,7 @@ export default function TenantsPage() {
           schoolAdminsLoading={schoolAdminsLoading}
           schoolAdminsError={schoolAdminsError}
           assignSchoolAdminForm={assignSchoolAdminForm}
-          setAssignSchoolAdminForm={setAssignSchoolAdminForm}
+          onAssignSchoolAdminFormChange={setAssignSchoolAdminForm}
           assignSchoolAdminSaving={assignSchoolAdminSaving}
           handleAssignSchoolAdmin={(schoolId) => handleAssignSchoolAdmin(schoolId)}
           handleRemoveSchoolAdmin={handleRemoveSchoolAdmin}

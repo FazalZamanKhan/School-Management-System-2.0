@@ -176,7 +176,11 @@ class ReportCardIsolationBase(TestCase):
         membership = InstitutionMembership.objects.create(
             user=user, institution=school
         )
-        RoleAssignment.objects.create(membership=membership, role=role, campus=campus)
+        RoleAssignment.objects.create(
+            membership=membership,
+            role=role,
+            campus=campus if role in (Role.PRINCIPAL, Role.VICE_PRINCIPAL, Role.CAMPUS_ADMIN) else None,
+        )
         StaffProfile.objects.create(
             user=user,
             membership=membership,

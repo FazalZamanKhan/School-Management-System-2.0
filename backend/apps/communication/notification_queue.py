@@ -351,7 +351,7 @@ def process_due_notifications(limit=50, now=None):
             status="queued",
             next_attempt_at__lte=now,
         )
-        .select_for_update(skip_locked=True, of=("self",))
+        .select_for_update(of=("self",), skip_locked=True)
         .select_related("recipient", "institution")
         .order_by("next_attempt_at", "created_at")[:limit]
     )

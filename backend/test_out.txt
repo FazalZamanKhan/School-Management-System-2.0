@@ -1,8 +1,0 @@
-﻿python : Creating test database for alias 'default' ('test_perfect_foundation')...
-At line:1 char:1
-+ python manage.py test apps.dashboard --verbosity=2 2>&1 | out-file -e ...
-+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (Creating test d...foundation')...:String) [], RemoteException
-    + FullyQualifiedErrorId : NativeCommandError
- 
-

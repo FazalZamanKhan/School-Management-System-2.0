@@ -35,6 +35,7 @@ def _make_campus_admin(username, campus, employee_number):
     from apps.accounts.models import StaffProfile
     StaffProfile.objects.create(
         user=user,
+        institution=campus.school,
         employee_number=employee_number,
         first_name="Campus",
         last_name="Admin",

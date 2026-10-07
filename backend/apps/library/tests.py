@@ -15,6 +15,7 @@ class BookCampusIsolationTests(TestCase):
         self.user = make_user("library-admin", Role.CAMPUS_ADMIN, self.school, campus=self.campus_a)
         StaffProfile.objects.create(
             user=self.user,
+            institution=self.school,
             employee_number="LIB-001",
             first_name="Library",
             last_name="Admin",

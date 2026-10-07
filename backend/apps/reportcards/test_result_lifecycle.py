@@ -268,6 +268,7 @@ class ResultLifecycleApiTests(TestCase):
         RoleAssignment.objects.create(
             membership=membership,
             role=role,
+            campus=campus if role in (Role.PRINCIPAL, Role.VICE_PRINCIPAL, Role.CAMPUS_ADMIN) else None,
         )
         StaffProfile.objects.create(
             user=user,

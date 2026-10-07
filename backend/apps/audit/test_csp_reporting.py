@@ -46,8 +46,7 @@ class CSPViolationReportingTests(TestCase):
         """Clear the throttle cache to avoid cross-test rate limiting."""
         from django.core.cache import caches
         for cache_name in ["default", "ratelimit"]:
-            cache = caches[cache_name]
-            cache.clear()
+            caches[cache_name].clear()
 
     def _as(self, user):
         self.client.force_authenticate(user=None)
@@ -325,7 +324,7 @@ class CSPViolationReportingTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
         violation = CSPViolation.objects.first()
-        self.assertEqual(len(violation.script_sample), 80)  # Includes the ellipsis.
+        self.assertEqual(len(violation.script_sample), 80)
         self.assertTrue(violation.script_sample.endswith("..."))
 
     def test_secret_redaction_in_script_sample(self):

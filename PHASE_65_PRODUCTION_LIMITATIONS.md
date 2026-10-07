@@ -1,2 +1,0 @@
-open_defects,code_only_defects,deployment_blocker,final_release_status
-8,8,CONFIRMED,PRODUCTION_CERTIFICATION_BLOCKED

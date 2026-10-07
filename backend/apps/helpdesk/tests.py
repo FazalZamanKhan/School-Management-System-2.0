@@ -152,10 +152,10 @@ class HelpdeskStaffTests(HelpdeskBase):
         self.create_ticket(subject="North issue", campus=self.other_campus.id)
 
         north_admin = self._make_user("northadmin", Role.CAMPUS_ADMIN)
-        from apps.accounts.models import StaffProfile, RoleAssignment
-
+        from apps.accounts.models import RoleAssignment, StaffProfile
         RoleAssignment.objects.filter(
-            membership__user=north_admin, role=Role.CAMPUS_ADMIN
+            membership__user=north_admin,
+            role=Role.CAMPUS_ADMIN,
         ).update(campus=self.other_campus)
 
         StaffProfile.objects.create(

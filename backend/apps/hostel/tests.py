@@ -26,6 +26,7 @@ def _make_campus_admin(username, campus, employee_number):
     user = make_user(username, Role.CAMPUS_ADMIN, campus.school, campus=campus)
     StaffProfile.objects.create(
         user=user,
+        institution=campus.school,
         employee_number=employee_number,
         first_name="Campus",
         last_name="Admin",

@@ -20,6 +20,7 @@ class AssetCampusIsolationTests(TestCase):
         self.user = make_user("inventory-admin", Role.CAMPUS_ADMIN, self.school, campus=self.campus_a)
         StaffProfile.objects.create(
             user=self.user,
+            institution=self.school,
             employee_number="INV-001",
             first_name="Inventory",
             last_name="Admin",
