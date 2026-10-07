@@ -440,7 +440,7 @@ class PaymentListView(generics.ListAPIView):
         return queryset
 
 
-class FeeCategoryListView(generics.ListAPIView):
+class FeeCategoryListView(generics.ListCreateAPIView):
     serializer_class = FeeCategorySerializer
     permission_classes = [IsAccountantRole]
     pagination_class = None
@@ -456,6 +456,13 @@ class FeeCategoryListView(generics.ListAPIView):
             queryset = queryset.filter(status=status)
 
         return queryset
+
+    def perform_create(self, serializer):
+        institution = getattr(self.request, "institution", None)
+        if institution is None:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({"institution": "Select a school before adding a fee category."})
+        serializer.save(institution=institution)
 
 
 class FeeStructureListView(generics.ListCreateAPIView):

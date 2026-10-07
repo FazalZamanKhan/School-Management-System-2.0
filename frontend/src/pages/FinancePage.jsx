@@ -21,6 +21,8 @@ import {
 import { formatCurrency, formatDate } from "./format";
 import { useLang } from "../i18n";
 import { jsonHeaders } from "../api";
+import { apiFetch } from "../api";
+import { Modal } from "../components/Modal";
 
 const INVOICES_API_URL = "/api/finance/invoices/";
 const PAYMENTS_API_URL = "/api/finance/payments/";
@@ -983,6 +985,35 @@ export default function FinancePage() {
   const invoices = useApiList(INVOICES_API_URL);
   const payments = useApiList(PAYMENTS_API_URL);
   const categories = useApiList(CATEGORIES_API_URL);
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [categoryForm, setCategoryForm] = useState({ name: "", description: "", frequency: "monthly", status: "active" });
+  const [categorySaving, setCategorySaving] = useState(false);
+  const [categoryError, setCategoryError] = useState("");
+
+  const closeCategoryModal = useCallback(() => {
+    setCategoryModalOpen(false);
+    setCategoryError("");
+  }, []);
+
+  const saveCategory = async (event) => {
+    event.preventDefault();
+    setCategorySaving(true);
+    setCategoryError("");
+    try {
+      await apiFetch(CATEGORIES_API_URL, {
+        method: "POST",
+        headers: jsonHeaders(),
+        body: JSON.stringify(categoryForm),
+      }, "Unable to create fee category.");
+      closeCategoryModal();
+      setCategoryForm({ name: "", description: "", frequency: "monthly", status: "active" });
+      categories.refresh(new URLSearchParams({ page: 1 }));
+    } catch (error) {
+      setCategoryError(error.message);
+    } finally {
+      setCategorySaving(false);
+    }
+  };
 
   const [dashboard, setDashboard] = useState(null);
   const [breakdown, setBreakdown] = useState(null);
@@ -1310,6 +1341,7 @@ export default function FinancePage() {
           title="Fee Categories"
           subtitle="categories configured"
           count={categories.count}
+          action={<button type="button" className="primary-button" onClick={() => setCategoryModalOpen(true)}><Plus size={15} /> Add Category</button>}
         />
 
         <StateArea loading={categories.loading} error={categories.error}>
@@ -1334,6 +1366,36 @@ export default function FinancePage() {
           )}
         </StateArea>
       </div>
+
+      <Modal isOpen={categoryModalOpen} onClose={closeCategoryModal} title="Add fee category">
+        <form onSubmit={saveCategory} className="form-grid">
+          <label className="form-span">Name
+            <input required maxLength={100} value={categoryForm.name} onChange={(event) => setCategoryForm({ ...categoryForm, name: event.target.value })} placeholder="e.g. Tuition" />
+          </label>
+          <label>Frequency
+            <select value={categoryForm.frequency} onChange={(event) => setCategoryForm({ ...categoryForm, frequency: event.target.value })}>
+              <option value="one_time">One time</option>
+              <option value="monthly">Monthly</option>
+              <option value="term">Per term</option>
+              <option value="annual">Annual</option>
+            </select>
+          </label>
+          <label>Status
+            <select value={categoryForm.status} onChange={(event) => setCategoryForm({ ...categoryForm, status: event.target.value })}>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </label>
+          <label className="form-span">Description
+            <textarea value={categoryForm.description} onChange={(event) => setCategoryForm({ ...categoryForm, description: event.target.value })} rows={3} />
+          </label>
+          {categoryError && <div className="form-span state-card error" role="alert">{categoryError}</div>}
+          <div className="form-span modal-footer">
+            <button type="button" className="secondary-button" onClick={closeCategoryModal}>Cancel</button>
+            <button type="submit" className="primary-button" disabled={categorySaving || !categoryForm.name.trim()}>{categorySaving ? "Saving..." : "Create category"}</button>
+          </div>
+        </form>
+      </Modal>
 
       <FeeStructureSection categories={categories.rows} />
 

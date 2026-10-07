@@ -54,3 +54,15 @@ class EmployeeProfileTests(APITestCase):
         Employee.objects.create(institution=self.school, staff_profile=self.staff, employee_number="E1")
         response = self.client.post("/api/hr/employees/", {"staff_profile": self.staff.pk}, format="json")
         self.assertEqual(response.status_code, 400)
+
+    def test_search_finds_legacy_profile_in_active_school(self):
+        legacy = StaffProfile.objects.create(
+            primary_campus=self.campus, employee_number="LEGACY-1",
+            first_name="Legacy", last_name="Staff", gender="female",
+        )
+        response = self.client.get("/api/hr/employees/profiles/?profile_type=staff&search=LEGACY-1")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([item["id"] for item in response.json()], [legacy.pk])
+        created = self.client.post("/api/hr/employees/", {"staff_profile": legacy.pk}, format="json")
+        self.assertEqual(created.status_code, 201, created.content)
+        self.assertEqual(created.json()["primary_campus"], self.campus.pk)

@@ -169,6 +169,18 @@ class FeeCategorySerializer(serializers.ModelSerializer):
             "updated_at",
         ]
 
+    def validate_name(self, value):
+        name = value.strip()
+        if not name:
+            raise serializers.ValidationError("Enter a category name.")
+        request = self.context.get("request")
+        institution = getattr(request, "institution", None)
+        if institution and FeeCategory.objects.all_with_deleted().filter(
+            institution=institution, name__iexact=name
+        ).exists():
+            raise serializers.ValidationError("A fee category with this name already exists.")
+        return name
+
 
 class FeeStructureSerializer(serializers.ModelSerializer):
     academic_year_name = serializers.CharField(

@@ -2264,3 +2264,27 @@ class JazzCashCheckoutSecurityTests(TestCase):
             resp = client.post("/api/finance/jazzcash/checkout/", {"invoice_id": invoice.pk}, format="json")
 
         self.assertEqual(resp.status_code, 400)
+
+
+class FeeCategoryCreationTests(TestCase):
+    def setUp(self):
+        self.school = School.objects.create(name="Category School")
+        self.user = User.objects.create_user(username="category_admin", password="test-pass")
+        membership = InstitutionMembership.objects.create(user=self.user, institution=self.school)
+        RoleAssignment.objects.create(membership=membership, role=Role.ADMIN)
+        self.client = APIClient()
+        self.client.force_login(self.user)
+
+    def test_create_category_for_active_school_and_reject_duplicate(self):
+        response = self.client.post("/api/finance/categories/", {
+            "name": "  Tuition  ", "frequency": "monthly", "status": "active",
+        }, format="json")
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertEqual(response.json()["name"], "Tuition")
+        self.assertTrue(FeeCategory.objects.filter(institution=self.school, name="Tuition").exists())
+
+        duplicate = self.client.post("/api/finance/categories/", {
+            "name": "tuition", "frequency": "monthly",
+        }, format="json")
+        self.assertEqual(duplicate.status_code, 400)
+        self.assertEqual(len(self.client.get("/api/finance/categories/").json()), 1)

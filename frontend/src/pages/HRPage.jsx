@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { BriefcaseBusiness, FileText, Plus, Search, Star, Users } from "lucide-react";
 import { PageHeader, PanelHeader, StateArea, StatusBadge } from "./ui";
 import { apiFetch, authHeaders } from "../api";
@@ -22,6 +22,8 @@ export default function HRPage() {
   const [addError, setAddError] = useState("");
   const [profiles, setProfiles] = useState([]);
   const [profilesLoading, setProfilesLoading] = useState(false);
+  const [profilesError, setProfilesError] = useState("");
+  const [profileSearch, setProfileSearch] = useState("");
   const [addForm, setAddForm] = useState({
     profile_type: "staff",
     profile_id: "",
@@ -78,24 +80,32 @@ export default function HRPage() {
   const openAdd = () => {
     setShowAdd(true);
     setAddForm((form) => ({ ...form, profile_id: "" }));
+    setProfileSearch("");
     setAddError("");
   };
+
+  const closeAdd = useCallback(() => {
+    setShowAdd(false);
+    setProfileSearch("");
+    setAddError("");
+  }, []);
 
   useEffect(() => {
     if (!showAdd) return;
     const controller = new AbortController();
     setProfiles([]);
     setProfilesLoading(true);
-    setAddError("");
-    apiFetch(`${EMPLOYEES_URL}profiles/?profile_type=${addForm.profile_type}`,
+    setProfilesError("");
+    const params = new URLSearchParams({ profile_type: addForm.profile_type, search: profileSearch.trim() });
+    const timer = setTimeout(() => apiFetch(`${EMPLOYEES_URL}profiles/?${params}`,
       { signal: controller.signal }, "Unable to load eligible profiles.")
       .then((data) => {
         if (!controller.signal.aborted) setProfiles(Array.isArray(data) ? data : []);
       })
-      .catch((err) => { if (!controller.signal.aborted) setAddError(err.message); })
-      .finally(() => { if (!controller.signal.aborted) setProfilesLoading(false); });
-    return () => controller.abort();
-  }, [showAdd, addForm.profile_type]);
+      .catch((err) => { if (!controller.signal.aborted) setProfilesError(err.message); })
+      .finally(() => { if (!controller.signal.aborted) setProfilesLoading(false); }), 150);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [showAdd, addForm.profile_type, profileSearch]);
 
   const submitAdd = (event) => {
     event.preventDefault();
@@ -116,7 +126,7 @@ export default function HRPage() {
       body: JSON.stringify(payload),
     })
       .then(() => {
-        setShowAdd(false);
+        closeAdd();
         setAddForm({ profile_type: "staff", profile_id: "", employment_type: "permanent", status: "active" });
         loadEmployees();
       })
@@ -176,25 +186,35 @@ export default function HRPage() {
         </form>
       </div>
       {showAdd && (
-        <Modal isOpen={showAdd} onClose={() => { if (!adding) setShowAdd(false); }} title="Add Employee">
+        <Modal isOpen={showAdd} onClose={closeAdd} title="Add Employee" closeOnEscape={!adding} closeOnOverlayClick={!adding}>
           <p className="hint">Link this employee to an existing staff or teacher profile.</p>
           {addError && <div className="state-card error" role="alert">{addError}</div>}
+          {profilesError && <div className="state-card error" role="alert">{profilesError}</div>}
           <form onSubmit={submitAdd}>
           <div className="form-grid">
             <label>Profile type
             <select
               value={addForm.profile_type}
               disabled={adding}
-              onChange={(event) => setAddForm({ ...addForm, profile_type: event.target.value, profile_id: "" })}
+              onChange={(event) => {
+                setAddForm({ ...addForm, profile_type: event.target.value, profile_id: "" });
+                setProfileSearch("");
+              }}
             >
               <option value="staff">Staff profile</option>
               <option value="teacher">Teacher profile</option>
             </select>
             </label>
+            <label>Find profile
+              <input value={profileSearch} disabled={adding} onChange={(event) => {
+                setProfileSearch(event.target.value);
+                setAddForm((form) => ({ ...form, profile_id: "" }));
+              }} placeholder="Search by name or number" />
+            </label>
             <label>Profile
             <select
               required
-              disabled={profilesLoading || adding}
+              disabled={profilesLoading || adding || Boolean(profilesError)}
               value={addForm.profile_id}
               onChange={(event) => setAddForm({ ...addForm, profile_id: event.target.value })}
             >
@@ -206,7 +226,8 @@ export default function HRPage() {
                 </option>
               ))}
             </select>
-            {!profilesLoading && !profiles.length && !addError && <small>No eligible profiles. Create a staff or teacher profile first.</small>}
+            {!profilesLoading && !profiles.length && !profilesError && <small>No eligible profiles. Create a staff or teacher profile first.</small>}
+            {profiles.length === 100 && <small>More profiles may be available. Search by name or number to find one.</small>}
             </label>
             <label>Employment type
             <select
@@ -234,8 +255,8 @@ export default function HRPage() {
             </label>
           </div>
           <div className="modal-footer">
-            <button type="button" className="secondary-button" disabled={adding} onClick={() => setShowAdd(false)}>Cancel</button>
-            <button type="submit" className="primary-button" disabled={adding || profilesLoading || !addForm.profile_id}>
+            <button type="button" className="secondary-button" disabled={adding} onClick={closeAdd}>Cancel</button>
+            <button type="submit" className="primary-button" disabled={adding || profilesLoading || Boolean(profilesError) || !addForm.profile_id}>
               {adding ? "Adding..." : "Add"}
             </button>
           </div>
