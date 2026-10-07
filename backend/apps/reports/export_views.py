@@ -8,6 +8,7 @@ from django.http import HttpResponse
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.negotiation import DefaultContentNegotiation
 
 from apps.accounts.permissions import IsAdminRole
 from apps.accounts.access import apply_campus_scope, get_institution
@@ -242,8 +243,17 @@ class DataExportListView(APIView):
         return Response(exports)
 
 
+class DownloadContentNegotiation(DefaultContentNegotiation):
+    def filter_renderers(self, renderers, format):
+        # CSV is a file format handled by the view, not a DRF renderer format.
+        if format == "csv":
+            return renderers
+        return super().filter_renderers(renderers, format)
+
+
 class DataExportView(APIView):
     permission_classes = [IsAuthenticated, IsAdminRole]
+    content_negotiation_class = DownloadContentNegotiation
 
     def get(self, request, export_key):
         if export_key not in EXPORT_CONFIGS:
@@ -389,6 +399,18 @@ def _scope_export_queryset(request, queryset, export_key):
 
 def _apply_filters(request, queryset, export_key):
     """Apply common query params."""
+    scope_fields = {
+        "teachers": ("primary_campus_id", "institution_id"),
+        "subjects": (None, "institution_id"),
+        "enrollments": ("campus_id", "academic_year__school_id"),
+    }
+    if export_key in scope_fields:
+        campus_path, institution_path = scope_fields[export_key]
+        institution = get_institution(request)
+        if institution is None:
+            return queryset.none()
+        queryset = queryset.filter(**{institution_path: institution.pk})
+        queryset = apply_campus_scope(queryset, request, campus_path, institution_field=None)
     search = request.query_params.get("search", "").strip()
     status = request.query_params.get("status", "")
     if status and hasattr(queryset.model, "status"):

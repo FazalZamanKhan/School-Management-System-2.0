@@ -41,10 +41,11 @@ export default function ExportPage() {
 
   const handleExport = async (key, filename, format) => {
     setDownloading(key);
+    setDownloadError("");
     try {
       await apiDownload(`${EXPORT_URL}/${key}/?format=${format}`, `${filename}.${format}`);
-    } catch {
-      // ignore
+    } catch (err) {
+      setDownloadError(err.message || "Failed to download the export.");
     } finally {
       setDownloading(null);
     }
