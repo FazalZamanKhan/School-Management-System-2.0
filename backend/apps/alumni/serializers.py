@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework import serializers
 
 from .models import AlumniProfile
@@ -30,9 +31,10 @@ class AlumniProfileSerializer(serializers.ModelSerializer):
         ]
 
     def validate_batch_year(self, value):
-        if value < 1980 or value > 2100:
+        current_year = timezone.localdate().year
+        if value < 1980 or value > current_year:
             raise serializers.ValidationError(
-                "Batch year looks invalid."
+                f"Batch year must be between 1980 and {current_year}."
             )
 
         return value
