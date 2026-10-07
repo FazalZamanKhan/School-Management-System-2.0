@@ -246,7 +246,7 @@ class FeeAnalyticsReportView(AggregateReportView):
         ).prefetch_related("items", "payments", "concessions")
 
     def get_queryset(self, request):
-        queryset = super().get_queryset(request)
+        queryset = self.get_base_queryset(request)
         queryset = apply_campus_scope(queryset, request, "enrollment__campus_id")
 
         date_from = request.query_params.get("date_from")
