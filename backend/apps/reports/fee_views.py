@@ -140,7 +140,7 @@ class FeeStatusReportView(AggregateReportView):
         ).prefetch_related("items", "payments", "concessions")
 
     def get_queryset(self, request):
-        queryset = super().get_queryset(request)
+        queryset = self.get_base_queryset(request)
         queryset = apply_campus_scope(queryset, request, "enrollment__campus_id")
 
         status_type = request.query_params.get("status_type", "outstanding")
