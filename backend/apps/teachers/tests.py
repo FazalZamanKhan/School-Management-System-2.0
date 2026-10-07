@@ -173,6 +173,17 @@ class TeacherAPIRegressionTests(TestCase):
         body = json.loads(response.content)
         self.assertIn("primary_campus", body)
 
+    def test_primary_campus_is_returned_after_save(self):
+        response = self._create(
+            self.admin_a,
+            self.school_a,
+            payload={"primary_campus": self.campus_a.id},
+        )
+        self.assertEqual(response.status_code, 201)
+        body = json.loads(response.content)
+        self.assertEqual(body["primary_campus"], self.campus_a.id)
+        self.assertEqual(body["primary_campus_name"], self.campus_a.name)
+
     def test_teacher_is_not_visible_to_other_schools(self):
         response = self._create(self.admin_a, self.school_a)
         self.assertEqual(response.status_code, 201)
