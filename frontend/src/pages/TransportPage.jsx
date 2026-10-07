@@ -222,7 +222,13 @@ export default function TransportPage() {
     setError("");
 
     fetch(`${BASE}${config.url}`, { credentials: "include" })
-      .then((response) => (response.ok ? response.json() : { results: [] }))
+      .then(async (response) => {
+        if (!response.ok) {
+          const detail = await response.json().catch(() => null);
+          throw new Error(detail?.detail || detail?.message || `Unable to load ${key} (${response.status}).`);
+        }
+        return response.json();
+      })
       .then((json) => {
         setData((previous) => ({
           ...previous,
