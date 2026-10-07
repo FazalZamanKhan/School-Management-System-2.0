@@ -266,6 +266,7 @@ class DataExportView(APIView):
         fields = config["fields"]
         related = config.get("related_fields", {})
 
+        queryset = _scope_export_queryset(request, queryset, export_key)
         queryset = _apply_filters(request, queryset, export_key)
 
         data_rows = []
@@ -390,23 +391,8 @@ def _apply_filters(request, queryset, export_key):
     """Apply common query params."""
     search = request.query_params.get("search", "").strip()
     status = request.query_params.get("status", "")
-    campus = request.query_params.get("campus", "")
-
     if status and hasattr(queryset.model, "status"):
         queryset = queryset.filter(status=status)
-
-    if campus:
-        if export_key in ("students", "enrollments"):
-            queryset = queryset.filter(
-                **{"enrollments__campus_id": campus} if export_key == "students"
-                else {"campus_id": campus}
-            )
-        elif export_key in ("invoices", "payments"):
-            queryset = queryset.filter(
-                **{"enrollment__campus_id": campus}
-            )
-        elif export_key == "attendance":
-            queryset = queryset.filter(campus_id=campus)
 
     if search:
         if export_key == "students":
@@ -421,7 +407,7 @@ def _apply_filters(request, queryset, export_key):
             queryset = queryset.filter(
                 Q(first_name__icontains=search)
                 | Q(last_name__icontains=search)
-                | Q(employee_id__icontains=search)
+                | Q(employee_number__icontains=search)
             )
 
     return queryset

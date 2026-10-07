@@ -35,6 +35,10 @@ class DataBackupViewTests(APITestCase):
         self.assertEqual(data["subjects"]["count"], 1)
         self.assertEqual(data["subjects"]["rows"][0]["id"], str(subject.pk))
 
+        export = self.client.get("/api/reports/export/subjects/?format=json")
+        self.assertEqual(export.status_code, 200, export.content)
+        self.assertEqual([row["id"] for row in export.json()], [subject.pk])
+
     def test_non_admin_cannot_download_backup(self):
         self.client.force_authenticate(user=make_user("backup-teacher", Role.TEACHER, self.school))
         self.assertEqual(self.client.get("/api/reports/backup/").status_code, 403)
