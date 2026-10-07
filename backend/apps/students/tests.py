@@ -695,3 +695,53 @@ class StudentCreationInstitutionRegressionTests(TestCase):
         self.assertEqual(response.status_code, 400)
         body = json.loads(response.content)
         self.assertIn("primary_campus", body)
+
+
+class AdmissionApplicationValidationTests(TestCase):
+    def setUp(self):
+        self.school = School.objects.create(name="Admissions School")
+        self.campus = Campus.objects.create(
+            school=self.school,
+            name="Admissions Campus",
+        )
+        unit = AcademicUnit.objects.create(campus=self.campus, name="Primary")
+        self.class_obj = Class.objects.create(unit=unit, name="Grade 1")
+        self.year = AcademicYear.objects.create(
+            school=self.school,
+            name="2026-2027",
+            start_date=date(2026, 8, 1),
+            end_date=date(2027, 7, 31),
+        )
+        self.admin = make_user("admissions_admin", "admin", self.school)
+
+    def _create_application(self, payload=None):
+        data = {
+            "application_number": "APP-VALID-001",
+            "first_name": "Sara",
+            "middle_name": "",
+            "last_name": "Khan",
+            "gender": "female",
+            "campus": self.campus.id,
+            "academic_year": self.year.id,
+            "class_obj": self.class_obj.id,
+            "status": "submitted",
+        }
+        if payload:
+            data.update(payload)
+
+        request = APIRequestFactory().post(
+            "/api/students/admissions/",
+            data=data,
+            format="json",
+        )
+        force_authenticate(request, self.admin)
+        request.institution = self.school
+        response = AdmissionApplicationListCreateView.as_view()(request)
+        response.render()
+        return response
+
+    def test_admission_application_rejects_alphabetic_phone(self):
+        response = self._create_application({"phone": "abc"})
+        self.assertEqual(response.status_code, 400)
+        body = json.loads(response.content)
+        self.assertIn("phone", body)

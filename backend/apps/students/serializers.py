@@ -62,6 +62,17 @@ ALLOWED_STUDENT_DOCUMENT_MIME_TYPES = {
     "text/plain",
 }
 
+def _phone_error(value):
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if not any(char.isdigit() for char in text):
+        return "Enter a valid phone number using digits, spaces, +, -, or parentheses."
+    allowed = set("0123456789+-() ")
+    if any(char not in allowed for char in text):
+        return "Enter a valid phone number using digits, spaces, +, -, or parentheses."
+    return None
+
 
 class GuardianSerializer(serializers.ModelSerializer):
     class Meta:
@@ -152,6 +163,11 @@ class AdmissionApplicationSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
 
+    def validate(self, attrs):
+        phone_error = _phone_error(attrs.get("phone"))
+        if phone_error:
+            raise serializers.ValidationError({"phone": phone_error})
+        return attrs
 
 class StudentLifecycleEventSerializer(serializers.ModelSerializer):
     event_type_display = serializers.CharField(source="get_event_type_display", read_only=True)

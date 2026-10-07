@@ -302,6 +302,16 @@ class AdmissionApplication(models.Model):
 
     def clean(self):
         errors = {}
+        phone = (self.phone or "").strip()
+        if phone:
+            allowed_phone_chars = set("0123456789+-() ")
+            if not any(char.isdigit() for char in phone) or any(
+                char not in allowed_phone_chars for char in phone
+            ):
+                errors["phone"] = (
+                    "Enter a valid phone number using digits, spaces, +, -, "
+                    "or parentheses."
+                )
         if self.class_obj_id and self.campus_id:
             if self.class_obj.unit.campus_id != self.campus_id:
                 errors["class_obj"] = "The selected class does not belong to the selected campus."
