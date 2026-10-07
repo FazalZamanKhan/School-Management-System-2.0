@@ -118,6 +118,11 @@ class ProtectedMediaAccessTests(TestCase):
         self.parent_user.save()
 
         self.manager_user = make_user("manager", Role.CAMPUS_ADMIN, self.school)
+        from apps.accounts.models import RoleAssignment
+        RoleAssignment.objects.filter(
+            membership__user=self.manager_user,
+            role=Role.CAMPUS_ADMIN,
+        ).update(campus=self.campus)
 
         self.admin_user = make_user("admin", Role.SUPER_ADMIN, self.school)
 
@@ -149,6 +154,8 @@ class ProtectedMediaAccessTests(TestCase):
         self.student_profile_path = os.path.join(student_profile_dir, "photo.jpg")
         with open(self.student_profile_path, "wb") as f:
             f.write(self.test_image_bytes)
+        self.student.photo.name = f"profiles/students/{self.student.pk}/photo.jpg"
+        self.student.save(update_fields=["photo"])
 
         # Create teacher profile image directory and file
         teacher_profile_dir = os.path.join(TEST_MEDIA_ROOT, "profiles/teachers", str(self.teacher.pk))
@@ -156,11 +163,14 @@ class ProtectedMediaAccessTests(TestCase):
         self.teacher_profile_path = os.path.join(teacher_profile_dir, "photo.jpg")
         with open(self.teacher_profile_path, "wb") as f:
             f.write(self.test_image_bytes)
+        self.teacher.photo.name = f"profiles/teachers/{self.teacher.pk}/photo.jpg"
+        self.teacher.save(update_fields=["photo"])
 
         # Create staff profile image directory and file (for manager)
         from apps.accounts.models import StaffProfile
         staff = StaffProfile.objects.create(
             user=self.manager_user,
+            institution=self.school,
             employee_number="STF-001",
             first_name="Staff",
             last_name="User",
@@ -173,6 +183,8 @@ class ProtectedMediaAccessTests(TestCase):
         self.staff_profile_path = os.path.join(staff_profile_dir, "photo.jpg")
         with open(self.staff_profile_path, "wb") as f:
             f.write(self.test_image_bytes)
+        staff.photo.name = f"profiles/staff/{staff.pk}/photo.jpg"
+        staff.save(update_fields=["photo"])
 
         # Create public branding image
         from PIL import Image
@@ -409,6 +421,34 @@ class ProtectedMediaAccessTests(TestCase):
 
         response = self._get_media(client, student_profile_path)
 
+        self.assertEqual(response.status_code, 200)
+
+    def test_profile_student_image_manager_cannot_cross_campus(self):
+        other_campus = Campus.objects.create(school=self.school, name="Other Campus")
+        self.student.primary_campus = other_campus
+        self.student.save(update_fields=["primary_campus"])
+
+        response = self._get_media(
+            self._as(self.manager_user), self.student.photo.name
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_profile_image_requires_exact_database_file_match(self):
+        path = os.path.join(TEST_MEDIA_ROOT, "profiles/students/unlinked.jpg")
+        with open(path, "wb") as file:
+            file.write(self.test_image_bytes)
+
+        response = self._get_media(self._as(self.manager_user), "profiles/students/unlinked.jpg")
+        self.assertEqual(response.status_code, 404)
+
+    def test_profile_image_uses_model_upload_path(self):
+        path = os.path.join(TEST_MEDIA_ROOT, "profiles/students/photo.jpg")
+        with open(path, "wb") as file:
+            file.write(self.test_image_bytes)
+        self.student.photo.name = "profiles/students/photo.jpg"
+        self.student.save(update_fields=["photo"])
+
+        response = self._get_media(self._as(self.student_user), self.student.photo.name)
         self.assertEqual(response.status_code, 200)
 
     def test_profile_student_image_cross_campus_denied(self):

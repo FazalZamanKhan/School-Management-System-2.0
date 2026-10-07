@@ -296,6 +296,8 @@ class StaffProfileCRUDSerializer(serializers.ModelSerializer):
 
         request = self.context.get("request")
         active_institution = getattr(request, "institution", None) if request else None
+        if request is not None and active_institution is None and staff is None:
+            return None
         return (
             active_institution
             or (staff.institution if staff is not None else None)
@@ -361,6 +363,18 @@ class StaffProfileCRUDSerializer(serializers.ModelSerializer):
         username = validated_data.pop("username", "") or None
         password = validated_data.pop("password", "") or None
 
+        school = self._resolve_school()
+        if school is None:
+            raise serializers.ValidationError(
+                {"institution": ["Select an active school before creating staff."]}
+            )
+        campus = validated_data.get("primary_campus")
+        if campus is not None and campus.school_id != school.pk:
+            raise serializers.ValidationError(
+                {"primary_campus": ["Campus must belong to the active school."]}
+            )
+        validated_data["institution"] = school
+
         validated_data["employee_number"] = self._ensure_employee_number(
             validated_data
         )
@@ -401,6 +415,12 @@ class StaffProfileCRUDSerializer(serializers.ModelSerializer):
         create_account = bool(validated_data.pop("create_account", False))
         username = validated_data.pop("username", "") or None
         password = validated_data.pop("password", "") or None
+
+        campus = validated_data.get("primary_campus")
+        if campus is not None and campus.school_id != instance.institution_id:
+            raise serializers.ValidationError(
+                {"primary_campus": ["Campus must belong to the staff member's school."]}
+            )
 
         validated_data["employee_number"] = self._ensure_employee_number(
             validated_data, instance

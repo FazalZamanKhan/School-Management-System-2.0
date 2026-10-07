@@ -1,6 +1,5 @@
 import csv
 import json
-import re
 from urllib.parse import urlparse, urlunparse
 
 from django.conf import settings
@@ -17,7 +16,7 @@ from rest_framework.throttling import AnonRateThrottle
 from apps.accounts.access import get_institution
 from apps.accounts.permissions import IsAdminRole
 
-from .models import AuditLog, ACTION_CHOICES, CSPViolation
+from .models import AuditLog, ACTION_CHOICES, CSPViolation, sanitize_script_sample
 from .serializers import AuditLogSerializer, CSPViolationSerializer
 
 
@@ -48,25 +47,6 @@ class CSPViolationReportView(APIView):
         except Exception:
             return url
 
-    def _truncate(self, s, max_len):
-        if s and len(s) > max_len:
-            return s[:max_len] + "..."
-        return s
-
-    def _sanitize_script_sample(self, sample):
-        if not sample:
-            return ""
-        # Truncate to 80 chars
-        sample = self._truncate(sample, 80)
-        # Redact secrets
-        sample = re.sub(
-            r'(api[_-]?key|token|secret|password|authorization|secretkey|access[_-]?token)["\']?\s*[:=]\s*["\']?[^"\'\s]+',
-            r'\1=***',
-            sample,
-            flags=re.IGNORECASE
-        )
-        return sample
-
     def _get_client_ip(self, request):
         """Extract client IP from request."""
         forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
@@ -79,37 +59,6 @@ class CSPViolationReportView(APIView):
 
         Supports both legacy 'csp-report' format and modern Reporting API v1 format.
         """
-        def sanitize_url(url):
-            """Remove query string and fragment from URL."""
-            if not url:
-                return ""
-            try:
-                parsed = urlparse(url)
-                return urlunparse((
-                    parsed.scheme, parsed.netloc, parsed.path, '', '', ''
-                ))
-            except Exception:
-                return url
-
-        def truncate(s, max_len):
-            if s and len(s) > max_len:
-                return s[:max_len] + "..."
-            return s
-
-        def sanitize_script_sample(sample):
-            if not sample:
-                return ""
-            # Truncate to 80 chars
-            sample = sample[:80] + "..." if len(sample) > 80 else sample
-            # Redact secrets
-            sample = re.sub(
-                r'(api[_-]?key|token|secret|password|authorization|secretkey|access[_-]?token)["\']?\s*[:=]\s*["\']?[^"\'\s]+',
-                r'\1=***',
-                sample,
-                flags=re.IGNORECASE
-            )
-            return sample
-
         # Handle both legacy 'csp-report' format and modern Reporting API format
         # Legacy format: { "csp-report": { "document-uri": "...", ... } }
         # Modern format: { "type": "csp-violation", "body": { "documentURL": "...", ... } }
@@ -141,7 +90,7 @@ class CSPViolationReportView(APIView):
         source_file = self._sanitize_url(source_file)
 
         # Sanitize script sample
-        script_sample = self._sanitize_script_sample(script_sample)
+        script_sample = sanitize_script_sample(script_sample)
 
         return {
             "document-uri": document_uri,

@@ -1,6 +1,0 @@
-core_role,status,verified_endpoints,notes
-SUPER_ADMIN,PASS,/api/auth/me/, /api/admin/run-migrations/, Core roles certified prior to Phase 64; deployment blocker does not affect core role functionality
-ADMIN,PASS,/api/auth/me/, /api/staff/, Core roles certified prior to Phase 64; deployment blocker does not affect core role functionality
-TEACHER,PASS,/api/auth/me/, /api/students/, Core roles certified prior to Phase 64; deployment blocker does not affect core role functionality
-STAFF,PASS,/api/auth/me/, /api/dashboard/, Core roles certified prior to Phase 64; deployment blocker does not affect core role functionality
-STUDENT,PASS,/api/auth/me/, /api/students/, Core roles certified prior to Phase 64; deployment blocker does not affect core role functionality

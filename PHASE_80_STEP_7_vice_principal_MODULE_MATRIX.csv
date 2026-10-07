@@ -1,2 +1,0 @@
-module,vice_principal_access_expected,vice_principal_access_observed,read_only_status,mutation_status,api_status,frontend_status,evidence,notes
-(not tested),ALLOWED_IF_GUARDED,NOT_OBSERVED,BLOCKED,NO_MUTATION_EXECUTED,NO_REQUEST,NOT_RENDERED,PHASE_79 row vice_principal NOT_CERTIFIED no documented account/session; no sa_vice_principal fixture; session.js no mapping. Frontend App.jsx guards DO reference vice_principal (context only),No session; no modules fabricated for blocked step
