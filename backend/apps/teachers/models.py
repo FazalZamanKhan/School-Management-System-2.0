@@ -1,5 +1,6 @@
 from django.core.exceptions import ValidationError
 from django.db import models  # type: ignore[import]
+from django.utils import timezone
 
 from apps.core.models import SoftDeleteMixin, SoftDeleteManager
 from apps.schools.models import School
@@ -167,6 +168,10 @@ class Teacher(SoftDeleteMixin):
             raise ValidationError({"membership": "Membership must belong to this user."})
         if self.membership_id and self.primary_campus_id and self.primary_campus.school_id != self.membership.institution_id:
             raise ValidationError({"primary_campus": "Campus must belong to the membership institution."})
+        if self.date_of_birth and self.date_of_birth > timezone.localdate():
+            raise ValidationError(
+                {"date_of_birth": "Date of birth cannot be in the future."}
+            )
 
 
 class TeacherAssignment(models.Model):

@@ -1,5 +1,6 @@
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
+from django.utils import timezone
 from rest_framework import serializers
 
 from .models import Teacher, TeacherAssignment
@@ -101,6 +102,20 @@ class TeacherSerializer(serializers.ModelSerializer):
 
     def get_generated_password(self, obj):
         return getattr(self, "_generated_password", None)
+
+    def validate(self, attrs):
+        errors = {}
+        date_of_birth = attrs.get(
+            "date_of_birth",
+            getattr(self.instance, "date_of_birth", None)
+            if self.instance is not None
+            else None,
+        )
+        if date_of_birth and date_of_birth > timezone.localdate():
+            errors["date_of_birth"] = "Date of birth cannot be in the future."
+        if errors:
+            raise serializers.ValidationError(errors)
+        return attrs
 
     def _resolve_school(self, teacher=None):
         from apps.schools.models import School
