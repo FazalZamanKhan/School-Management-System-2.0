@@ -63,6 +63,19 @@ ALLOWED_STUDENT_DOCUMENT_MIME_TYPES = {
 }
 
 
+def _has_letter(value):
+    return any(char.isalpha() for char in str(value or ""))
+
+
+def _letter_required_errors(attrs, fields, message):
+    errors = {}
+    for field in fields:
+        value = attrs.get(field)
+        if value not in (None, "") and not _has_letter(value):
+            errors[field] = message
+    return errors
+
+
 class GuardianSerializer(serializers.ModelSerializer):
     class Meta:
         model = Guardian
@@ -806,6 +819,28 @@ class StudentSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         creating = self.instance is None
+
+        name_errors = _letter_required_errors(
+            attrs,
+            ("first_name", "middle_name", "last_name"),
+            "Enter a name containing at least one letter.",
+        )
+        name_errors.update(
+            _letter_required_errors(
+                attrs,
+                ("guardian_name",),
+                "Enter a guardian name containing at least one letter.",
+            )
+        )
+        name_errors.update(
+            _letter_required_errors(
+                attrs,
+                ("guardian_relationship",),
+                "Enter a relationship containing at least one letter.",
+            )
+        )
+        if name_errors:
+            raise serializers.ValidationError(name_errors)
 
         if creating:
             required = [

@@ -695,3 +695,23 @@ class StudentCreationInstitutionRegressionTests(TestCase):
         self.assertEqual(response.status_code, 400)
         body = json.loads(response.content)
         self.assertIn("primary_campus", body)
+
+    def test_student_api_rejects_symbol_only_names_and_guardian_fields(self):
+        response = self._create(
+            self.admin_a,
+            self.school_a,
+            payload={
+                "first_name": "!@#$%^&*",
+                "middle_name": "!@#$%^&*",
+                "last_name": "!@#$%^&*",
+                "guardian_name": "!@#$%^&*",
+                "guardian_relationship": "!@#$%^&*",
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+        body = json.loads(response.content)
+        self.assertIn("first_name", body)
+        self.assertIn("middle_name", body)
+        self.assertIn("last_name", body)
+        self.assertIn("guardian_name", body)
+        self.assertIn("guardian_relationship", body)
