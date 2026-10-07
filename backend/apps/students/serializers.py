@@ -6,6 +6,7 @@ from django.db import IntegrityError
 from rest_framework import serializers
 
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from .models import (
@@ -806,6 +807,15 @@ class StudentSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         creating = self.instance is None
+        date_of_birth = attrs.get(
+            "date_of_birth",
+            self.instance.date_of_birth if self.instance is not None else None,
+        )
+
+        if date_of_birth and date_of_birth > timezone.localdate():
+            raise serializers.ValidationError(
+                {"date_of_birth": "Date of birth cannot be in the future."}
+            )
 
         if creating:
             required = [
