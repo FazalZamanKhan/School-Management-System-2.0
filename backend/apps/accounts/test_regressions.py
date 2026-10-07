@@ -12,6 +12,7 @@ Covers:
 """
 from django.test import TestCase
 from rest_framework.test import APIClient
+from types import SimpleNamespace
 
 from apps.accounts.models import (
     InstitutionMembership,
@@ -413,12 +414,17 @@ class DesignationRoleMappingRegressionTests(TestCase):
         self.campus = Campus.objects.create(
             school=self.school, name="Main Campus", status="active"
         )
+        self.staff_number = 0
 
     def _make_user(self, username, role):
         """Create a user with given role (for permission context)."""
         from django.contrib.auth import get_user_model
         User = get_user_model()
-        user = User.objects.create_user(username=username, password=PASSWORD)
+        user = User.objects.create_user(
+            username=username,
+            email=f"{username}@example.test",
+            password=PASSWORD,
+        )
         membership = InstitutionMembership.objects.create(
             user=user, institution=self.school, status="active"
         )
@@ -427,22 +433,25 @@ class DesignationRoleMappingRegressionTests(TestCase):
 
     def _provision_staff_with_designation(self, designation, email=""):
         """Create StaffProfile with designation and auto-provision account."""
-        from apps.accounts.serializers import StaffProfileSerializer
-        serializer = StaffProfileSerializer(data={
-            "employee_number": "EMP-%s" % designation.upper().replace(" ", "")[:10],
+        from apps.accounts.serializers import StaffProfileCRUDSerializer
+        self.staff_number += 1
+        serializer = StaffProfileCRUDSerializer(data={
+            "employee_number": f"EMP-{self.staff_number:04d}",
             "first_name": "Test",
             "last_name": "User",
+            "gender": "male",
+            "primary_campus": self.campus.pk,
             "designation": designation,
             "department": "Test",
-            "campus": self.campus.name,
             "joining_date": "2024-01-01",
             "status": "active",
             "create_account": True,
-            "email": email or "test.%s@example.test" % designation.lower().replace(" ", "."),
+            "email": email or f"staff{self.staff_number}@example.test",
             "password": "TempPass123!",
-        })
+        }, context={"request": SimpleNamespace(institution=self.school)})
         self.assertTrue(serializer.is_valid(), serializer.errors)
         staff = serializer.save()
+        self.assertEqual(staff.institution_id, self.school.pk)
         return staff
 
     def _get_user_role(self, user):

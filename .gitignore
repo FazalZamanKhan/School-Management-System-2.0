@@ -20,6 +20,7 @@ backend/.env
 # Django runtime artifacts
 backend/staticfiles/
 backend/media/
+backend/cache/
 
 # Logs
 *.log
@@ -28,6 +29,9 @@ logs/
 # Node / Vite
 node_modules/
 dist/
+/package-lock.json
+e2e/playwright-report/
+e2e/test-results/
 
 # Vercel / Render local
 .vercel/
@@ -53,4 +57,3 @@ cookies.txt
 .migration-secret.tmp
 
 Neon Console*
-

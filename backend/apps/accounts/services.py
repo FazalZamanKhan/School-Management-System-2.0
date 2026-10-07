@@ -307,8 +307,8 @@ def provision_campus_with_admin(campus_data, admin_data=None, school=None):
         cross-campus branch).
 
     The ``admin_data`` dict supports the same fields as
-    ``provision_school_with_admin``. If ``school`` is not provided, the
-    admin's institution will be set from the campus's school.
+    ``provision_school_with_admin``. The ``school`` argument is retained for
+    callers, but the campus's school is always authoritative.
 
     Returns ``(campus, admin_user, admin_username, password)`` where
     ``password`` is the plaintext password in force. The caller may return
@@ -326,9 +326,9 @@ def provision_campus_with_admin(campus_data, admin_data=None, school=None):
     admin_data = admin_data or {}
     with transaction.atomic():
         campus = Campus.objects.create(**campus_data)
-        SchoolSettings.objects.get_or_create(campus=campus)
+        SchoolSettings.objects.get_or_create(school=campus.school)
 
-        institution = school or getattr(campus, "school", None)
+        institution = campus.school
         if institution is None:
             raise ValueError("Campus must be associated with a School.")
 
@@ -350,7 +350,11 @@ def provision_campus_with_admin(campus_data, admin_data=None, school=None):
             institution=institution,
             status="active",
         )
-        RoleAssignment.objects.create(membership=membership, role=Role.CAMPUS_ADMIN)
+        RoleAssignment.objects.create(
+            membership=membership,
+            role=Role.CAMPUS_ADMIN,
+            campus=campus,
+        )
 
     return campus, admin_user, admin_username, password
 

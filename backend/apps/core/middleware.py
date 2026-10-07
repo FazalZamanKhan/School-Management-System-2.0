@@ -10,7 +10,7 @@ CSP Policy:
 - style-src 'self' 'unsafe-inline' (for one inline style in App.jsx)
 - img-src 'self' data: blob: (for icons, data: URLs, blob: downloads)
 - font-src 'self' (system fonts only)
-- connect-src 'self' https://perfect-foundation-api.vercel.app (API calls)
+- connect-src 'self' (API calls share the public origin)
 - object-src 'none' (no plugins)
 - base-uri 'self'
 - form-action 'self'
@@ -33,7 +33,7 @@ class ContentSecurityPolicyMiddleware(MiddlewareMixin):
         "style-src 'self' 'unsafe-inline'; "
         "img-src 'self'; "
         "font-src 'self'; "
-        "connect-src 'self' https://perfect-foundation-api.vercel.app; "
+        "connect-src 'self'; "
         "object-src 'none'; "
         "base-uri 'self'; "
         "form-action 'self'; "

@@ -1,8 +1,0 @@
-frontend_route,backend_endpoint,parity_status,notes
-/Library,/api/library/,PARITY_BROKEN,Frontend has Library route and Librarian nav; backend /api/library/ returns 404
-/Reports,/api/reports/,PARITY_BROKEN,Frontend has Reports navigation; backend /api/reports/ returns 404
-/Visitors,/api/visitors/,PARITY_BROKEN,Frontend has Visitors route for Guard; backend /api/visitors/ returns 404
-/Payroll,/api/payroll/,PARITY_BROKEN,Frontend has Payroll module; backend /api/payroll/ status unknown (deployment blocked)
-/Health,/api/health-records/,PARITY_BROKEN,Frontend has Health Records; backend /api/health-records/ status unknown
-/Staff,/api/staff/,PARITY_UNVERIFIED,Frontend Staff routes exist; backend status unclear due to deployment blocker
-/Students,/api/students/,PARITY_UNVERIFIED,Frontend Student routes exist; backend status unclear due to deployment blocker

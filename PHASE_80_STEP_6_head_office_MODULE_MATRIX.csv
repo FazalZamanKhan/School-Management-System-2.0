@@ -1,2 +1,0 @@
-module,head_office_access_expected,head_office_access_observed,read_only_status,mutation_status,api_status,frontend_status,evidence,notes
-(not tested),ALLOWED_IF_GUARDED,NOT_OBSERVED,BLOCKED,NO_MUTATION_EXECUTED,NO_REQUEST,NOT_RENDERED,PHASE_79_FINAL_ROLE_CERTIFICATION_MATRIX.csv head_office row NOT_CERTIFIED blocking reason zero frontend guard references (MISS-002/TPR-005 remainder); App.jsx no head_office role predicates,No session; no modules fabricated for blocked step

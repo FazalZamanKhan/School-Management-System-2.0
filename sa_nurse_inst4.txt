@@ -1,2 +1,0 @@
-sessionid=wpjxzcdb1u36a0v9czstg2xuz1cxc34e
-csrftoken=JrOXMAUCT3TH8pJ30GU5NjbvwTpx7oTM

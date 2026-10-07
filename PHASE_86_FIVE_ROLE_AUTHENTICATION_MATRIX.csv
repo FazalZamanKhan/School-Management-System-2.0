@@ -1,6 +1,0 @@
-Role,Account_Found,Legitimate_Session,Authenticated,Primary_Role_Proven,Authentication_Status,Notes
-counsellor,NO,NO,NO,NO,AUTHENTICATION_BLOCKED,"No account created; no session fixture"
-guard,NO,NO,NO,NO,AUTHENTICATION_BLOCKED,"No account created; no session fixture"
-nurse,HISTORICAL,NO,NO,NO,AUTHENTICATION_BLOCKED,"Historical SA-EMP-0002; no valid session"
-administrative_officer,HISTORICAL,NO,NO,NO,AUTHENTICATION_BLOCKED,"Historical SA-EMP-00041; no valid session"
-librarian,HISTORICAL,NO,NO,NO,AUTHENTICATION_BLOCKED,"Historical SA-EMP-00011; no valid session"

@@ -1,5 +1,8 @@
 # Launch Guide — From Zero to First Live School
 
+> This guide describes the older two-project deployment. For the current
+> one-project Vercel Services configuration, use [Vercel Services](docs/VERCEL_SERVICES.md).
+
 Exact clicks, URLs and commands. Do Phase 1 once, Phase 2 per school,
 Phase 3 forever.
 
