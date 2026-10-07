@@ -806,6 +806,23 @@ class StudentSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         creating = self.instance is None
+        date_of_birth = attrs.get(
+            "date_of_birth",
+            self.instance.date_of_birth if self.instance is not None else None,
+        )
+        admission_date = attrs.get(
+            "admission_date",
+            self.instance.admission_date if self.instance is not None else None,
+        )
+
+        if date_of_birth and admission_date and admission_date < date_of_birth:
+            raise serializers.ValidationError(
+                {
+                    "admission_date": (
+                        "Admission date cannot be earlier than date of birth."
+                    )
+                }
+            )
 
         if creating:
             required = [

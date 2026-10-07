@@ -644,6 +644,14 @@ class Student(SoftDeleteMixin):
             raise ValidationError({"membership": "Membership must belong to this user."})
         if self.membership_id and self.primary_campus_id and self.primary_campus.school_id != self.membership.institution_id:
             raise ValidationError({"primary_campus": "Campus must belong to the membership institution."})
+        if (
+            self.date_of_birth
+            and self.admission_date
+            and self.admission_date < self.date_of_birth
+        ):
+            raise ValidationError(
+                {"admission_date": "Admission date cannot be earlier than date of birth."}
+            )
 
     def can_transition_to(self, new_status):
         """Check if transition from current status to new_status is allowed."""
@@ -846,6 +854,14 @@ class Student(SoftDeleteMixin):
             raise ValidationError({"membership": "Membership must belong to this user."})
         if self.membership_id and self.primary_campus_id and self.primary_campus.school_id != self.membership.institution_id:
             raise ValidationError({"primary_campus": "Campus must belong to the membership institution."})
+        if (
+            self.date_of_birth
+            and self.admission_date
+            and self.admission_date < self.date_of_birth
+        ):
+            raise ValidationError(
+                {"admission_date": "Admission date cannot be earlier than date of birth."}
+            )
 
     @property
     def full_name(self):
