@@ -158,6 +158,13 @@ class ClassSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
 
+    def validate_name(self, value):
+        if value and not any(char.isalpha() for char in value):
+            raise serializers.ValidationError(
+                "Enter a class name containing at least one letter."
+            )
+        return value
+
 
 class SectionSerializer(serializers.ModelSerializer):
     class_name = serializers.CharField(

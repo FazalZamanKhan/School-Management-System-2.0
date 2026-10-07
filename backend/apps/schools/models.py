@@ -1,6 +1,7 @@
 import secrets
 import string
 
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 from django.utils.text import slugify
@@ -271,6 +272,13 @@ class Class(models.Model):
 
     def __str__(self):
         return self.name
+
+    def clean(self):
+        errors = {}
+        if self.name and not any(char.isalpha() for char in self.name):
+            errors["name"] = "Enter a class name containing at least one letter."
+        if errors:
+            raise ValidationError(errors)
 
 
 class Section(models.Model):

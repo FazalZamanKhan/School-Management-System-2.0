@@ -18,6 +18,7 @@ from .models import (
 	Subject,
 	SubjectOffering,
 )
+from .serializers import ClassSerializer
 
 
 class AcademicStructureModelTests(TestCase):
@@ -44,6 +45,13 @@ class AcademicStructureModelTests(TestCase):
 
 		with self.assertRaises(ValidationError):
 			duplicate.full_clean()
+
+	def test_class_serializer_rejects_punctuation_only_name(self):
+		serializer = ClassSerializer(
+			data={"unit": self.class_obj.unit_id, "name": "!!!", "level": 1}
+		)
+		self.assertFalse(serializer.is_valid())
+		self.assertIn("name", serializer.errors)
 
 	def test_subject_offering_is_unique_for_class_and_year(self):
 		SubjectOffering.objects.create(
