@@ -991,7 +991,26 @@ class InquiryListCreateView(generics.ListCreateAPIView):
         return queryset
 
     def perform_create(self, serializer):
-        serializer.save(institution=self.request.institution)
+        from django.utils import timezone
+
+        today = timezone.localdate()
+        prefix = f"INQ-{today:%Y%m%d}"
+        next_number = (
+            Inquiry.objects.filter(
+                institution=self.request.institution,
+                inquiry_number__startswith=prefix,
+            ).count()
+            + 1
+        )
+        inquiry_number = f"{prefix}-{next_number:04d}"
+        while Inquiry.objects.filter(inquiry_number=inquiry_number).exists():
+            next_number += 1
+            inquiry_number = f"{prefix}-{next_number:04d}"
+
+        serializer.save(
+            institution=self.request.institution,
+            inquiry_number=inquiry_number,
+        )
 
 
 class InquiryDetailView(generics.RetrieveUpdateDestroyAPIView):

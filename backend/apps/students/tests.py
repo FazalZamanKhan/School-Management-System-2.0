@@ -23,7 +23,7 @@ from .models import (
     Inquiry,
     TransferCertificate,
 )
-from .views import StudentListCreateView
+from .views import InquiryListCreateView, StudentListCreateView
 
 
 class StudentLifecycleModelTests(TestCase):
@@ -695,3 +695,26 @@ class StudentCreationInstitutionRegressionTests(TestCase):
         self.assertEqual(response.status_code, 400)
         body = json.loads(response.content)
         self.assertIn("primary_campus", body)
+
+
+class InquiryCreationRegressionTests(TestCase):
+    def setUp(self):
+        self.school = School.objects.create(name="Inquiry School")
+        self.admin = make_user("inquiry_admin", "admin", self.school)
+
+    def test_minimal_inquiry_generates_inquiry_number(self):
+        request = APIRequestFactory().post(
+            "/api/students/inquiries/",
+            data={"first_name": "QAInquiryMinimal"},
+            format="json",
+        )
+        force_authenticate(request, self.admin)
+        request.institution = self.school
+        response = InquiryListCreateView.as_view()(request)
+        response.render()
+
+        self.assertEqual(response.status_code, 201)
+        body = json.loads(response.content)
+        inquiry = Inquiry.objects.get(pk=body["id"])
+        self.assertTrue(inquiry.inquiry_number.startswith("INQ-"))
+        self.assertEqual(inquiry.first_name, "QAInquiryMinimal")
