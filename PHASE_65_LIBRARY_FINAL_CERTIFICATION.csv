@@ -1,8 +1,0 @@
-endpoint,http_status,authenticated,role,certification_status,notes
-/api/library/,404,N/A,N/A,NOT_DEPLOYED,Library root not deployed in production
-/api/library/books/,403,N/A,Librarian,NOT_DEPLOYED,Books returns 403 in stale deployment
-/api/library/issues/,404,N/A,Librarian,NOT_DEPLOYED,Issues endpoint not deployed
-/api/library/reservations/,404,N/A,Librarian,NOT_DEPLOYED,Reservations not deployed
-/api/library/reports/,404,N/A,Librarian,NOT_DEPLOYED,Reports not deployed
-/api/library/members/,404,N/A,Librarian,NOT_DEPLOYED,Members not deployed
-/api/library/settings/,404,N/A,Librarian,NOT_DEPLOYED,Settings not deployed

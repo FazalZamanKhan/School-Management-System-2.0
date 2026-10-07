@@ -1,2 +1,0 @@
-role,route,expected_access,observed_result,classification,evidence,notes
-org_admin,(not tested),ALLOWED_IF_GUARDED,NOT_OBSERVED,BLOCKED,PHASE_79_FINAL_ROLE_CERTIFICATION_MATRIX.csv org_admin row: documented_account_available=NO production_session_available=NO; PHASE_78_STEP_3_ROLE_ACCOUNT_MATRIX row org_admin NO_DOCUMENTED_ACCOUNT; session.js ROLE_FILES has no org_admin fixture; App.jsx has zero org_admin guard references,No session fixture exists; no /api/auth/me/ call possible; no routes fabricated for blocked step

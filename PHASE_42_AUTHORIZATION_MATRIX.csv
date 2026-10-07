@@ -1,6 +1,0 @@
-role,scope behavior,evidence
-SUPER_ADMIN,Cross-tenant: sees all institutions,"/api/students/ count=5, /api/teachers/ count=1, fee-structures count=520 (all institutions)"
-ADMIN,Institution: same underlying dataset (single-tenant demo),"counts match SUPER_ADMIN: students 5, teachers 1, staff 3"
-TEACHER_01,Denied finance/payroll (403); read-only on HR/scoped lists,"invoices/payments/categories/payroll 403; students 0 (no assigned class), staff 3"
-STUDENT_01,Self profile; finance/payroll 403; teachers viewable,/api/students/me/ 200; payroll 403; teachers count=1
-STAFF_01,Institution staff lists; finance/payroll 403,staff count=3; finance+payroll 403

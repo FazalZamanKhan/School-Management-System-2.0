@@ -1,7 +1,0 @@
-endpoint,metric,pre_fix,post_fix
-attendance,queries_per_request,62,18
-exams,queries_per_request,500 (invalid prefetch),18
-exams_results,queries_per_request,per-row N+1 practical,13
-report_cards,queries_per_request,prior-phase bulk load,16
-role_check,queries_per_has_any_role,13 * roles,1
-role_check,permission_checks_per_request,2+,2

@@ -1,2 +1,0 @@
-module,nurse_access_expected,nurse_access_observed,read_only_status,mutation_status,api_status,frontend_status,evidence,notes
-(not tested),ALLOWED_IF_GUARDED,NOT_OBSERVED,BLOCKED,NO_MUTATION_EXECUTED,NO_REQUEST,NOT_RENDERED,PHASE_79 row nurse BLOCKED no valid session; health records via teacher/principal only (not nurse); TPR-004 FE route-guard gap documented source/historical evidence not re-confirmed; session.js no mapping; no sa_nurse fixture,No valid session; no modules fabricated for blocked step

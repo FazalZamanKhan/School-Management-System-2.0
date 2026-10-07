@@ -1,2 +1,0 @@
-module,parent_access_expected,parent_access_observed,read_only_status,mutation_status,api_status,frontend_status,evidence,notes
-(not tested),ALLOWED_IF_GUARDED,NOT_OBSERVED,BLOCKED,NO_MUTATION_EXECUTED,NO_REQUEST,NOT_RENDERED,PHASE_79 row parent NOT_CERTIFIED no documented account/session; parent portal IMPLEMENTED source-only PHASE_77_1 not production certified; session.js no mapping; no sa_parent fixture; sa_PF-student.txt is student not parent,No documented session; no modules fabricated for blocked step

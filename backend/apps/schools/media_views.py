@@ -12,12 +12,12 @@ import mimetypes
 import os
 
 from django.conf import settings
-from django.db.models import Q
+from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
 from django.http import FileResponse, Http404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
-from apps.accounts.access import get_institution, assert_campus_allowed, user_allowed_campus_ids, is_global
+from apps.accounts.access import user_allowed_campus_ids, is_global
 from apps.accounts.scopes import is_manager, is_teacher, is_parent, is_student, parent_student_ids, teacher_student_ids
 from apps.students.models import Student
 from apps.teachers.models import Teacher
@@ -68,13 +68,12 @@ def _check_student_document_access(file_path, user, institution):
     if not is_global(user):
         student = doc.student
         # Get allowed campus ids for user
-        allowed_campus_ids = user_allowed_campus_ids(user)
-        if allowed_campus_ids:
-            student_campus_ids = set(
-                student.enrollments.filter(status="active").values_list("campus_id", flat=True)
-            )
-            if not student_campus_ids & allowed_campus_ids:
-                return False
+        allowed_campus_ids = user_allowed_campus_ids(user, institution=institution)
+        student_campus_ids = set(
+            student.enrollments.filter(status="active").values_list("campus_id", flat=True)
+        )
+        if not student_campus_ids & allowed_campus_ids:
+            return False
 
     # Role-based access: uploader, parent of student, student self, teacher of student, manager
     if doc.uploaded_by_id == user.id:
@@ -114,8 +113,8 @@ def _check_employee_document_access(file_path, user, institution):
 
     # Campus access for non-global
     if not is_global(user):
-        allowed_campus_ids = user_allowed_campus_ids(user)
-        if allowed_campus_ids and doc.employee.primary_campus_id not in allowed_campus_ids:
+        allowed_campus_ids = user_allowed_campus_ids(user, institution=institution)
+        if doc.employee.primary_campus_id not in allowed_campus_ids:
             return False
 
     # Role-based access: uploader, employee self, manager, accountant/hr
@@ -139,89 +138,71 @@ def _check_employee_document_access(file_path, user, institution):
 
 
 def _check_profile_access(file_path, user, institution):
-    """Verify access to profile images (students, teachers, staff, users)."""
-    normalized = file_path.replace("\\", "/")
-    parts = normalized.split("/")
+    """Authorize the exact profile file recorded on its owner model."""
+    def same_school(profile):
+        if institution is None:
+            return user.is_superuser
+        school_id = profile.institution_id
+        if school_id is None and profile.primary_campus_id:
+            school_id = profile.primary_campus.school_id
+        return school_id == institution.pk
 
-    # profiles/students/<id>/
-    if normalized.startswith("profiles/students/") and len(parts) >= 3:
-        try:
-            student_id = int(parts[2])
-            student = Student.objects.select_related("primary_campus", "user").filter(pk=student_id).first()
-            if not student:
+    def manager_can_view(campus_id):
+        return is_manager(user) and (
+            is_global(user)
+            or campus_id in user_allowed_campus_ids(user, institution=institution)
+        )
+
+    try:
+        if file_path.startswith("profiles/students/"):
+            student = Student.objects.select_related("primary_campus", "user").get(photo=file_path)
+            if not same_school(student):
                 return False
-            if institution is not None and student.primary_campus and student.primary_campus.school_id != institution.id:
-                return False
-            # Allow: student self, parent of student, teacher of student, manager
             if student.user_id == user.id:
                 return True
-            if is_parent(user) and student_id in parent_student_ids(user):
+            if is_parent(user) and student.pk in parent_student_ids(user):
                 return True
-            if is_teacher(user) and student_id in teacher_student_ids(user):
+            if is_teacher(user) and student.pk in teacher_student_ids(user):
                 return True
-            if is_manager(user):
-                return True
-            return False
-        except (ValueError, IndexError):
-            return False
+            return manager_can_view(student.primary_campus_id)
 
-    # profiles/teachers/<id>/
-    if normalized.startswith("profiles/teachers/") and len(parts) >= 3:
-        try:
-            teacher_id = int(parts[2])
-            teacher = Teacher.objects.select_related("primary_campus", "user").filter(pk=teacher_id).first()
-            if not teacher:
-                return False
-            if institution is not None and teacher.primary_campus and teacher.primary_campus.school_id != institution.id:
-                return False
-            # Allow: teacher self, manager
-            if teacher.user_id == user.id:
-                return True
-            if is_manager(user):
-                return True
-            return False
-        except (ValueError, IndexError):
-            return False
+        if file_path.startswith("profiles/teachers/"):
+            teacher = Teacher.objects.select_related("primary_campus", "user").get(photo=file_path)
+            return same_school(teacher) and (
+                teacher.user_id == user.id or manager_can_view(teacher.primary_campus_id)
+            )
 
-    # profiles/staff/<id>/
-    if normalized.startswith("profiles/staff/") and len(parts) >= 3:
-        try:
-            staff_id = int(parts[2])
+        if file_path.startswith("profiles/staff/"):
             from apps.accounts.models import StaffProfile
-            staff = StaffProfile.objects.select_related("primary_campus", "user").filter(pk=staff_id).first()
-            if not staff:
-                return False
-            if institution is not None and staff.primary_campus and staff.primary_campus.school_id != institution.id:
-                return False
-            # Allow: staff self, manager
-            if staff.user_id == user.id:
-                return True
-            if is_manager(user):
-                return True
-            return False
-        except (ValueError, IndexError):
-            return False
+            staff = StaffProfile.objects.select_related("primary_campus", "user").get(photo=file_path)
+            return same_school(staff) and (
+                staff.user_id == user.id or manager_can_view(staff.primary_campus_id)
+            )
 
-    # profiles/users/<id>/
-    if normalized.startswith("profiles/users/") and len(parts) >= 3:
-        try:
-            user_id = int(parts[2])
+        if file_path.startswith("profiles/users/"):
             from apps.accounts.models import User
-            target_user = User.objects.select_related(
-                "student_profile__primary_campus",
-                "teacher_profile__primary_campus",
-                "staff_profile__primary_campus",
-            ).filter(pk=user_id).first()
-            if not target_user:
+            target = User.objects.select_related(
+                "student_profile", "teacher_profile", "staff_profile"
+            ).get(photo=file_path)
+            if target.pk == user.pk:
+                return True
+            if institution is not None and target.institution_id != institution.pk:
                 return False
-            # Allow: self, manager
-            if target_user.id == user.id:
-                return True
-            if is_manager(user):
-                return True
-            return False
-        except (ValueError, IndexError):
-            return False
+            campus_id = next(
+                (
+                    profile.primary_campus_id
+                    for profile in (
+                        getattr(target, "staff_profile", None),
+                        getattr(target, "teacher_profile", None),
+                        getattr(target, "student_profile", None),
+                    )
+                    if profile is not None and profile.primary_campus_id
+                ),
+                None,
+            )
+            return manager_can_view(campus_id)
+    except (ObjectDoesNotExist, MultipleObjectsReturned):
+        return False
 
     return False
 
@@ -317,7 +298,7 @@ class PublicBrandingMediaView(APIView):
     def get(self, request, file_path=""):
         clean = os.path.normpath(file_path).replace("\\", "/")
 
-        if clean.startswith(".."):
+        if clean.startswith("..") or clean.startswith("/"):
             raise Http404
 
         # Only allow image extensions

@@ -1,2 +1,0 @@
-module,academic_access_expected,academic_access_observed,read_only_status,mutation_status,api_status,frontend_status,evidence,notes
-(not tested),ALLOWED_IF_GUARDED,NOT_OBSERVED,BLOCKED,NO_MUTATION_EXECUTED,NO_REQUEST,NOT_RENDERED,PHASE_79 row academic NOT_CERTIFIED no documented account/session; no sa_academic fixture; session.js no mapping. Frontend App.jsx guards DO reference academic (context only),No session; no modules fabricated for blocked step

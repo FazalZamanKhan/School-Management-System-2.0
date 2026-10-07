@@ -1,2 +1,0 @@
-module,hr_access_expected,hr_access_observed,read_only_status,mutation_status,api_status,frontend_status,evidence,notes
-(not tested),ALLOWED_IF_GUARDED,NOT_OBSERVED,BLOCKED,NO_MUTATION_EXECUTED,NO_REQUEST,NOT_RENDERED,PHASE_79 row hr NOT_CERTIFIED invalid fixture no valid session; HR module read paths proven via principal (not hr); PHASE_73 mutation blocker payroll MUTATION_BLOCKED_NOT_EXECUTED; session.js no mapping; no sa_hr fixture,No valid session; no modules fabricated for blocked step
