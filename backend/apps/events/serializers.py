@@ -100,6 +100,15 @@ class EventSerializer(serializers.ModelSerializer):
             "my_rsvp",
         ]
 
+    def validate(self, attrs):
+        start = attrs.get("start_datetime", getattr(self.instance, "start_datetime", None))
+        end = attrs.get("end_datetime", getattr(self.instance, "end_datetime", None))
+        if start is not None and end is not None and end <= start:
+            raise serializers.ValidationError({
+                "end_datetime": "End datetime must be later than start datetime."
+            })
+        return attrs
+
     def get_created_by_name(self, obj):
         if obj.created_by is None:
             return None

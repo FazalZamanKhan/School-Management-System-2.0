@@ -60,9 +60,9 @@ class Event(models.Model):
     def clean(self):
         from django.core.exceptions import ValidationError
 
-        if self.end_datetime < self.start_datetime:
+        if self.end_datetime <= self.start_datetime:
             raise ValidationError(
-                "End datetime cannot be before start datetime."
+                "End datetime must be later than start datetime."
             )
 
         if self.campus_id and self.school_id:
