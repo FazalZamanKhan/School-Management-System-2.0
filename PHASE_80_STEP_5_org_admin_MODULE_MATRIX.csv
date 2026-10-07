@@ -1,2 +1,0 @@
-role,module,expected_access,observed_result,classification,evidence,notes
-org_admin,(not tested),ALLOWED_IF_GUARDED,NOT_OBSERVED,BLOCKED,PHASE_79_FINAL_ROLE_CERTIFICATION_MATRIX.csv org_admin row NOT_CERTIFIED; blocking reason zero frontend guard references (MISS-002/TPR-005 remainder) role unusable from UI; App.jsx no org_admin role predicates,No session; no module fabricated for blocked step

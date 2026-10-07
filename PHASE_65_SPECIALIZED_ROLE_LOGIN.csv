@@ -1,9 +1,0 @@
-role,account_identifier,institution,login_status,session_valid,must_change_password,role_assignment,notes
-librarian,sa_librarian,institution_4,UNVERIFIED,,,librarian,Deployment blocker prevents session verification; /api/library/ returns 404
-accountant,sa_accountant,institution_5,UNVERIFIED,,,accountant,Deployment blocker prevents session verification; /api/reports/ returns 404
-guard,sa_guard,institution_1,UNVERIFIED,,,guard,Deployment blocker prevents session verification; /api/visitors/ returns 404
-admin_officer,sa_admin_officer,institution_2,UNVERIFIED,,,staff,Deployment blocker prevents session verification; role=staff (no ADMIN_OFFICER enum)
-nurse,sa_nurse_inst4,institution_4,UNVERIFIED,,,nurse,Deployment blocker prevents session verification; code fix D-005 exists but not deployed
-hr,sa_hr,institution_5,UNVERIFIED,,,staff,Deployment blocker prevents session verification; payroll module not accessible
-receptionist,sa_receptionist,institution_3,UNVERIFIED,,,staff,Deployment blocker prevents session verification; visitors module returns 404
-student2,sa_student2,institution_2,UNVERIFIED,,,student,Deployment blocker prevents me from writing 400 characters. The total number of lines is

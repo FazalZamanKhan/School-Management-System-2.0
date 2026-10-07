@@ -32,11 +32,17 @@ jobs:
         run: npm ci
       - name: Lint frontend
         run: npm run lint
+      - name: Test frontend
+        run: npm test
       - name: Build frontend
         run: npm run build
 
   backend:
     runs-on: ubuntu-latest
+    env:
+      DJANGO_SECRET_KEY: ci-only-test-secret
+      DJANGO_SETTINGS_MODULE: config.settings.postgres_test
+      DB_ENGINE: django.db.backends.postgresql
     services:
       postgres:
         image: postgres:17
@@ -80,4 +86,4 @@ jobs:
           DB_NAME: perfect_foundation
           DB_USER: school_admin
           DB_PASSWORD: school_password
-        run: python manage.py test
+        run: python manage.py test apps

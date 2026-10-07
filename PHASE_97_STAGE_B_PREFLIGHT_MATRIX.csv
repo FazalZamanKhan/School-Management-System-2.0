@@ -1,6 +1,0 @@
-PHASE_97_STAGE_B_PREFLIGHT_MATRIX,Role,Navigation Visible,Route RequireRoles,Source Established,Gate Decision,Notes
-COUNSELLOR,Helpdesk,/helpdesk INCLUDES "counsellor",Yes,Established,Open,Nav + route both include counsellor
-GUARD,Helpdesk + Visitors,/helpdesk INCLUDES "guard",Yes; /visitors INCLUDES "guard",Established,Open,Nav + route both include guard; /visitors gate specific
-NURSE,Health Records,/health-records INCLUDES "nurse",Yes,Established,Open,Nav + route both include nurse
-ADMINISTRATIVE_OFFICER,Helpdesk,/helpdesk INCLUDES "administrative_officer",Yes,Established,Open,Nav + route both include administrative_officer
-LIBRARIAN,Library,/library NA (route absent),No,NOT ESTABLISHED,Blocked,Nav shows library but no /library route in App.jsx; gap requires owner decision

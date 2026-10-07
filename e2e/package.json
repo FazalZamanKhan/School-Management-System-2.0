@@ -1,1 +1,1 @@
-{"name":"perfect-foundation-e2e","private":true,"type":"module","dependencies":{"@playwright/test":"^1.63.0"}}
+{"name":"perfect-foundation-e2e","private":true,"type":"module","scripts":{"test":"playwright test"},"dependencies":{"@playwright/test":"^1.63.0"}}
