@@ -1,2 +1,0 @@
-live_revision_id,expected_commit_sha,live_commit_sha,commit_match,expected_marker,live_marker,marker_match,fingerprint_match,deployment_status,notes
-d9dcb7d,0ab87f0,unknown,NO,PHASE65_DEPLOYMENT_MARKER,absent,NO,NO,PRODUCTION_BLOCKED,Vercel Python serverless functions not deploying latest code; /api/deploy-test/ returns 404; deployment fingerprint cannot be established until pipeline repaired

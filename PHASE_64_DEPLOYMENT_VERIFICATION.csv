@@ -1,9 +1,0 @@
-commit_sha,expected_status,actual_status,endpoint,notes
-30fa841,200,404,/api/deploy-test/,Endpoint not deployed - returns 404
-30fa841,200,404,/api/library/,Library routes not deployed
-30fa841,200,403,/api/library/books/,Books endpoint returns 403 (auth issue in stale deployment)
-30fa841,200,404,/api/reports/,Reports base endpoint not deployed
-unknown,200,200,/api/health/,Health endpoint works (DB connectivity)
-30fa841,200,unknown,/api/deploy-test/?commit=30fa841,Verify deploy-test returns expected commit
-unknown,200,unknown,/api/library/books/,Verify with Librarian session authentication
-unknown,200,unknown,/api/reports/library/,Verify reports with proper permissions

@@ -1,16 +1,16 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import path from 'path'
+import process from 'node:process'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 5173,
+    port: Number(process.env.PORT) || 5173,
     strictPort: true,
-    proxy: {
+    proxy: process.env.VERCEL ? undefined : {
       '/api': {
-        target: 'http://127.0.0.1:8000',
+        target: process.env.LOCAL_DJANGO_URL || 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
     },

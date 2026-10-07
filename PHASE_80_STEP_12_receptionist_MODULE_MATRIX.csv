@@ -1,2 +1,0 @@
-module,receptionist_access_expected,receptionist_access_observed,read_only_status,mutation_status,api_status,frontend_status,evidence,notes
-(not tested),ALLOWED_IF_GUARDED,NOT_OBSERVED,BLOCKED,NO_MUTATION_EXECUTED,NO_REQUEST,NOT_RENDERED,PHASE_79 row receptionist NOT_CERTIFIED invalid fixture no valid session; visitors/admissions via principal only (not receptionist); session.js no mapping; no sa_receptionist fixture,No valid session; no modules fabricated for blocked step

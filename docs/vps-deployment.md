@@ -1,5 +1,8 @@
 # VPS Deployment Guide (Gunicorn + Nginx)
 
+> This alternative guide assumes the older separate frontend Vercel project.
+> For the current one-project deployment, use [Vercel Services](VERCEL_SERVICES.md).
+
 Alternative to Render: run the Django backend on a Linux server the client
 owns, using **Gunicorn** behind **nginx** with HTTPS. The frontend stays on
 Vercel and the database stays on Neon.
