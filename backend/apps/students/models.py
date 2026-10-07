@@ -302,6 +302,8 @@ class AdmissionApplication(models.Model):
 
     def clean(self):
         errors = {}
+        if self.date_of_birth and self.date_of_birth > timezone.localdate():
+            errors["date_of_birth"] = "Date of birth cannot be in the future."
         if self.class_obj_id and self.campus_id:
             if self.class_obj.unit.campus_id != self.campus_id:
                 errors["class_obj"] = "The selected class does not belong to the selected campus."

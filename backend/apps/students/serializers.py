@@ -3,6 +3,7 @@ from pathlib import Path
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
+from django.utils import timezone
 from rest_framework import serializers
 
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -152,6 +153,16 @@ class AdmissionApplicationSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
 
+    def validate(self, attrs):
+        date_of_birth = attrs.get(
+            "date_of_birth",
+            self.instance.date_of_birth if self.instance is not None else None,
+        )
+        if date_of_birth and date_of_birth > timezone.localdate():
+            raise serializers.ValidationError(
+                {"date_of_birth": "Date of birth cannot be in the future."}
+            )
+        return attrs
 
 class StudentLifecycleEventSerializer(serializers.ModelSerializer):
     event_type_display = serializers.CharField(source="get_event_type_display", read_only=True)
