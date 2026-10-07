@@ -1,3 +1,5 @@
+import re
+
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
@@ -5,6 +7,19 @@ from django.db import models
 from urllib.parse import urlparse, urlunparse
 
 from apps.schools.models import School
+
+
+def sanitize_script_sample(sample):
+    """Redact secrets and fit the sample inside its 80-character column."""
+    if not sample:
+        return ""
+    sample = re.sub(
+        r'(api[_-]?key|token|secret|password|authorization|secretkey|access[_-]?token)["\']?\s*[:=]\s*["\']?[^"\'\s]+',
+        r'\1=***',
+        sample,
+        flags=re.IGNORECASE,
+    )
+    return sample[:77] + "..." if len(sample) > 80 else sample
 
 
 class AuditLog(models.Model):
@@ -296,19 +311,7 @@ class CSPViolation(models.Model):
             except Exception:
                 pass
 
-        # Truncate script_sample to 80 chars
-        if self.script_sample and len(self.script_sample) > 80:
-            self.script_sample = self.script_sample[:80] + "..."
-
-        # Redact secrets in script_sample
-        if self.script_sample:
-            import re
-            self.script_sample = re.sub(
-                r'(api[_-]?key|token|secret|password|authorization|secret)["\']?\s*[:=]\s*["\']?[^"\'\s]+',
-                r'\1=***',
-                self.script_sample,
-                flags=re.IGNORECASE
-            )
+        self.script_sample = sanitize_script_sample(self.script_sample)
 
         # Truncate user agent
         if self.user_agent and len(self.user_agent) > 500:

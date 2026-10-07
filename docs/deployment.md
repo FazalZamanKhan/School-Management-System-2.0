@@ -1,5 +1,9 @@
 # Deployment Guide
 
+> This guide describes the older Vercel + Render deployment and references a
+> frontend Vercel config that was removed. For the current one-project setup,
+> use [Vercel Services](VERCEL_SERVICES.md).
+
 The app is split in two:
 
 - **Frontend** (React + Vite, in `frontend/`) -> **Vercel**

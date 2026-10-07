@@ -1,2 +1,0 @@
-sessionid=c3t1n5x2c1usu5d836oqzon0u5eydwvq
-csrftoken=weUsjiQNSCoONz70PdThMVBo9QcZhUgS

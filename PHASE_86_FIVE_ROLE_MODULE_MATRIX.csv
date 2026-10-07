@@ -1,8 +1,0 @@
-Role,Module,Expected_Access,Actual_Status,Tested,Notes
-counsellor,Helpdesk,READ,NOT_TESTED,NO,"Deployment blocked; no session"
-guard,Helpdesk,READ,NOT_TESTED,NO,"Deployment blocked; no session"
-guard,Visitors,READ,NOT_TESTED,NO,"Deployment blocked; no session"
-guard,Digital IDs,READ,NOT_TESTED,NO,"Deployment blocked; no session"
-nurse,Health Records,READ,NOT_TESTED,NO,"Deployment blocked; no session"
-administrative_officer,Helpdesk,READ,NOT_TESTED,NO,"Deployment blocked; no session"
-librarian,Library,READ,NOT_TESTED,NO,"Deployment blocked; no session"

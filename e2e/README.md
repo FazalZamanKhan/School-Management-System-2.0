@@ -26,12 +26,13 @@ set "P43_SESSIONS_DIR=C:\secure\intended\dir"
 npm run test
 ```
 
-Or override base URL:
+Or run against the local servers:
 
 ```bash
-set "P43_BASE_URL=https://perfect-foundation-sms.vercel.app"
-npm run test
+P43_BASE_URL=http://127.0.0.1:5173 npm test
 ```
+
+Role-specific tests skip when their session variables are unavailable.
 
 ## Test files (10 role/files)
 

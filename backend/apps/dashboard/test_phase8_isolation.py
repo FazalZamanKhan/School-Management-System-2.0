@@ -25,10 +25,11 @@ from apps.accounts.test_access import make_user
 
 
 def _make_campus_admin(username, campus, employee_number):
-    user = make_user(username, Role.CAMPUS_ADMIN, campus.school)
+    user = make_user(username, Role.CAMPUS_ADMIN, campus.school, campus=campus)
     from apps.accounts.models import StaffProfile
     StaffProfile.objects.create(
         user=user,
+        institution=campus.school,
         employee_number=employee_number,
         first_name="Campus",
         last_name="Admin",

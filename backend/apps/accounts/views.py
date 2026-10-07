@@ -1495,7 +1495,7 @@ class StaffListCreateView(generics.ListCreateAPIView):
         campus = self.request.query_params.get("campus")
 
         if campus:
-            queryset = queryset.filter(campus__iexact=campus)
+            queryset = queryset.filter(primary_campus_id=campus)
 
         return queryset
 
