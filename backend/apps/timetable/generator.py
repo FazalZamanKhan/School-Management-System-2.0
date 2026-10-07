@@ -64,7 +64,10 @@ def generate_timetable(
     )
 
     if not periods:
-        raise ValueError("No teaching periods configured.")
+        raise ValueError(
+            "No teaching periods configured. Add active non-break periods "
+            "before generating a timetable."
+        )
 
     # Filter assignments by class/section if provided
     assignment_filters = {
@@ -92,7 +95,8 @@ def generate_timetable(
     if not assignments:
         raise ValueError(
             "No active teacher assignments found for this campus "
-            "and academic year."
+            "and academic year. Assign teachers to subjects/classes before "
+            "generating a timetable."
         )
 
     # Requirements per section.

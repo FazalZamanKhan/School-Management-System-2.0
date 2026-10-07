@@ -360,3 +360,34 @@ class TimetableModelTests(TestCase):
 		self.assertFalse(
 			find_conflicts(academic_year=self.year)
 		)
+
+	def test_generate_api_returns_actionable_error_for_missing_assignments(self):
+		user = get_user_model().objects.create_user(
+			username="timetable-generator-class",
+			email="timetable-generator-class@test.edu",
+			password="TestPass123!",
+		)
+		membership = InstitutionMembership.objects.create(
+			user=user,
+			institution=self.school,
+		)
+		RoleAssignment.objects.create(
+			membership=membership,
+			role=Role.ADMIN,
+		)
+
+		client = APIClient()
+		client.force_authenticate(user=user)
+		response = client.post(
+			reverse("timetable-generate"),
+			{
+				"campus": self.campus.pk,
+				"class_id": self.class_obj.pk,
+				"lessons_per_subject": 5,
+				"confirm": True,
+			},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 400)
+		self.assertIn("Assign teachers", response.data["detail"])

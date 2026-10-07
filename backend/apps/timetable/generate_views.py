@@ -92,14 +92,17 @@ class TimetableGenerateView(APIView):
 
         if class_id:
             from apps.schools.models import Class
-            if not Class.objects.filter(pk=class_id, campus=campus).exists():
+            if not Class.objects.filter(pk=class_id, unit__campus=campus).exists():
                 return Response(
                     {"detail": "Class not found in this campus."}, status=404
                 )
 
         if section_id:
             from apps.schools.models import Section
-            if not Section.objects.filter(pk=section_id, class_obj__campus=campus).exists():
+            if not Section.objects.filter(
+                pk=section_id,
+                class_obj__unit__campus=campus,
+            ).exists():
                 return Response(
                     {"detail": "Section not found in this campus."}, status=404
                 )
