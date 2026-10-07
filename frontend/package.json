@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "test": "node --test tests/hostel-room-selector.test.mjs tests/hostel-allocation-active-school.test.mjs tests/branding-theme.test.mjs tests/staff-leave-manager-selector.test.mjs tests/teacher-profile-campus.test.mjs tests/navbar-stacking.test.mjs tests/students-page-403.test.mjs tests/school-switcher.test.mjs tests/campuses-page-role-aware.test.mjs",
+    "test": "node --test tests/hostel-room-selector.test.mjs tests/hostel-allocation-active-school.test.mjs tests/branding-theme.test.mjs tests/staff-leave-manager-selector.test.mjs tests/teacher-profile-campus.test.mjs tests/navbar-stacking.test.mjs tests/students-page-403.test.mjs tests/school-switcher.test.mjs tests/campuses-page-role-aware.test.mjs tests/staff-campus-filter.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

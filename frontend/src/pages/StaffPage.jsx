@@ -21,6 +21,7 @@ import {
 import ProfileModal from "./ProfileModal";
 import CredentialDisplay from "../components/CredentialDisplay";
 import { buildErrorMessage } from "../api";
+import { matchesStaffCampus } from "../staffCampusFilter";
 
 const STAFF_API_URL = "/api/staff/";
 
@@ -411,10 +412,7 @@ export default function StaffPage() {
         .toLowerCase()
         .includes(searchValue);
 
-    const matchesCampus =
-      !campus ||
-      (member.primary_campus && member.primary_campus === campus) ||
-      (member.campus && member.campus.toString() === campus);
+    const matchesCampus = matchesStaffCampus(member, campus);
 
     const matchesDesignation =
       !designation ||
