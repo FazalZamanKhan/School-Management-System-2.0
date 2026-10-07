@@ -167,6 +167,20 @@ class Teacher(SoftDeleteMixin):
             raise ValidationError({"membership": "Membership must belong to this user."})
         if self.membership_id and self.primary_campus_id and self.primary_campus.school_id != self.membership.institution_id:
             raise ValidationError({"primary_campus": "Campus must belong to the membership institution."})
+        phone = (self.phone or "").strip()
+        if phone:
+            allowed_phone_chars = set("0123456789+-() ")
+            if not any(char.isdigit() for char in phone) or any(
+                char not in allowed_phone_chars for char in phone
+            ):
+                raise ValidationError(
+                    {
+                        "phone": (
+                            "Enter a valid phone number using digits, spaces, +, -, "
+                            "or parentheses."
+                        )
+                    }
+                )
 
 
 class TeacherAssignment(models.Model):

@@ -5,6 +5,18 @@ from rest_framework import serializers
 from .models import Teacher, TeacherAssignment
 
 
+def _phone_error(value):
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if not any(char.isdigit() for char in text):
+        return "Enter a valid phone number using digits, spaces, +, -, or parentheses."
+    allowed = set("0123456789+-() ")
+    if any(char not in allowed for char in text):
+        return "Enter a valid phone number using digits, spaces, +, -, or parentheses."
+    return None
+
+
 class TeacherSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
 
@@ -101,6 +113,20 @@ class TeacherSerializer(serializers.ModelSerializer):
 
     def get_generated_password(self, obj):
         return getattr(self, "_generated_password", None)
+
+    def validate(self, attrs):
+        errors = {}
+        phone_error = _phone_error(
+            attrs.get(
+                "phone",
+                getattr(self.instance, "phone", "") if self.instance is not None else "",
+            )
+        )
+        if phone_error:
+            errors["phone"] = phone_error
+        if errors:
+            raise serializers.ValidationError(errors)
+        return attrs
 
     def _resolve_school(self, teacher=None):
         from apps.schools.models import School
