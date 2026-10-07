@@ -1,6 +1,7 @@
 import secrets
 import string
 
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 from django.utils.text import slugify
@@ -272,6 +273,12 @@ class Class(models.Model):
     def __str__(self):
         return self.name
 
+    def clean(self):
+        errors = {}
+        if self.level is not None and self.level < 0:
+            errors["level"] = "Class level cannot be negative."
+        if errors:
+            raise ValidationError(errors)
 
 class Section(models.Model):
     class_obj = models.ForeignKey(
