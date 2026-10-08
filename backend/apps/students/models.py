@@ -647,6 +647,12 @@ class Student(SoftDeleteMixin):
             errors["primary_campus"] = "Campus must belong to the membership institution."
         if self.date_of_birth and self.date_of_birth > timezone.localdate():
             errors["date_of_birth"] = "Date of birth cannot be in the future."
+        if (
+            self.date_of_birth
+            and self.admission_date
+            and self.admission_date < self.date_of_birth
+        ):
+            errors["admission_date"] = "Admission date cannot be earlier than date of birth."
         if errors:
             raise ValidationError(errors)
 
@@ -854,6 +860,12 @@ class Student(SoftDeleteMixin):
             errors["primary_campus"] = "Campus must belong to the membership institution."
         if self.date_of_birth and self.date_of_birth > timezone.localdate():
             errors["date_of_birth"] = "Date of birth cannot be in the future."
+        if (
+            self.date_of_birth
+            and self.admission_date
+            and self.admission_date < self.date_of_birth
+        ):
+            errors["admission_date"] = "Admission date cannot be earlier than date of birth."
         if errors:
             raise ValidationError(errors)
 
@@ -2031,4 +2043,3 @@ class ProgressionRecord(SoftDeleteMixin):
                 )
         if errors:
             raise ValidationError(errors)
-
