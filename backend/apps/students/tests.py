@@ -804,3 +804,9 @@ class AdmissionApplicationValidationTests(TestCase):
         self.assertEqual(response.status_code, 400)
         body = json.loads(response.content)
         self.assertIn("date_of_birth", body)
+
+    def test_admission_application_rejects_alphabetic_phone(self):
+        response = self._create_application({"phone": "abc"})
+        self.assertEqual(response.status_code, 400)
+        body = json.loads(response.content)
+        self.assertIn("phone", body)

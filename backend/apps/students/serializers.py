@@ -64,6 +64,16 @@ ALLOWED_STUDENT_DOCUMENT_MIME_TYPES = {
 }
 
 
+def _phone_error(value):
+    text = str(value or "").strip()
+    if not text:
+        return None
+    allowed = set("0123456789+-() ")
+    if not any(char.isdigit() for char in text) or any(char not in allowed for char in text):
+        return "Enter a valid phone number using digits, spaces, +, -, or parentheses."
+    return None
+
+
 def _has_letter(value):
     return any(char.isalpha() for char in str(value or ""))
 
@@ -182,6 +192,9 @@ class AdmissionApplicationSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"date_of_birth": "Date of birth cannot be in the future."}
             )
+        phone_error = _phone_error(attrs.get("phone"))
+        if phone_error:
+            raise serializers.ValidationError({"phone": phone_error})
         return attrs
 
 
