@@ -991,9 +991,10 @@ export default function FinancePage() {
   const [categoryError, setCategoryError] = useState("");
 
   const closeCategoryModal = useCallback(() => {
+    if (categorySaving) return;
     setCategoryModalOpen(false);
     setCategoryError("");
-  }, []);
+  }, [categorySaving]);
 
   const saveCategory = async (event) => {
     event.preventDefault();
