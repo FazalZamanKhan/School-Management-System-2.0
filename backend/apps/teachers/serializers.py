@@ -1,5 +1,6 @@
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
+from django.utils import timezone
 from rest_framework import serializers
 
 from .models import Teacher, TeacherAssignment

@@ -377,7 +377,7 @@ class TimetableModelTests(TestCase):
 		)
 
 		client = APIClient()
-		client.force_authenticate(user=user)
+		client.force_login(user)
 		response = client.post(
 			reverse("timetable-generate"),
 			{
@@ -407,7 +407,7 @@ class TimetableModelTests(TestCase):
 		)
 
 		client = APIClient()
-		client.force_authenticate(user=user)
+		client.force_login(user)
 		response = client.post(
 			reverse("timetable-generate"),
 			{

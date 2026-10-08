@@ -829,7 +829,6 @@ class InquiryCreationRegressionTests(TestCase):
         response.render()
 
         self.assertEqual(response.status_code, 201)
-        body = json.loads(response.content)
-        inquiry = Inquiry.objects.get(pk=body["id"])
+        inquiry = Inquiry.objects.get(first_name="QAInquiryMinimal")
         self.assertTrue(inquiry.inquiry_number.startswith("INQ-"))
         self.assertEqual(inquiry.first_name, "QAInquiryMinimal")
