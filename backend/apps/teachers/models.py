@@ -163,10 +163,17 @@ class Teacher(SoftDeleteMixin):
         return f"{self.first_name} {self.last_name} ({self.employee_number})"
 
     def clean(self):
+        errors = {}
+        for field in ("first_name", "last_name"):
+            value = getattr(self, field, "")
+            if value and not any(char.isalpha() for char in value):
+                errors[field] = "Enter a name containing at least one letter."
         if self.membership_id and self.user_id and self.membership.user_id != self.user_id:
-            raise ValidationError({"membership": "Membership must belong to this user."})
+            errors["membership"] = "Membership must belong to this user."
         if self.membership_id and self.primary_campus_id and self.primary_campus.school_id != self.membership.institution_id:
-            raise ValidationError({"primary_campus": "Campus must belong to the membership institution."})
+            errors["primary_campus"] = "Campus must belong to the membership institution."
+        if errors:
+            raise ValidationError(errors)
 
 
 class TeacherAssignment(models.Model):

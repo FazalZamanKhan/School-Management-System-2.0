@@ -5,6 +5,10 @@ from rest_framework import serializers
 from .models import Teacher, TeacherAssignment
 
 
+def _has_letter(value):
+    return any(char.isalpha() for char in str(value or ""))
+
+
 class TeacherSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
 
@@ -101,6 +105,19 @@ class TeacherSerializer(serializers.ModelSerializer):
 
     def get_generated_password(self, obj):
         return getattr(self, "_generated_password", None)
+
+    def validate(self, attrs):
+        errors = {}
+        for field in ("first_name", "last_name"):
+            value = attrs.get(
+                field,
+                getattr(self.instance, field, "") if self.instance is not None else "",
+            )
+            if value and not _has_letter(value):
+                errors[field] = "Enter a name containing at least one letter."
+        if errors:
+            raise serializers.ValidationError(errors)
+        return attrs
 
     def _resolve_school(self, teacher=None):
         from apps.schools.models import School
