@@ -2,6 +2,7 @@
 school website. Heavily throttled; write-only except structure lookups."""
 
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -149,27 +150,33 @@ class PublicAdmissionApplyView(APIView):
             f"{AdmissionApplication.objects.count() + 1:05d}"
         )
 
-        application = AdmissionApplication.objects.create(
-            institution=campus.school,
-            application_number=application_number,
-            first_name=str(data.get("first_name")).strip()[:100],
-            middle_name=str(data.get("middle_name") or "").strip()[:100],
-            last_name=str(data.get("last_name")).strip()[:100],
-            date_of_birth=data.get("date_of_birth") or None,
-            gender=gender,
-            phone=str(data.get("phone") or "").strip()[:30],
-            address=str(data.get("address") or "").strip(),
-            campus=campus,
-            academic_year=year,
-            class_obj=class_obj,
-            section=section,
-            review_notes=(
-                f"Guardian: {data.get('guardian_name')} "
-                f"({data.get('guardian_phone')})"
-            ),
-            status="submitted",
-            submitted_at=timezone.now(),
-        )
+        try:
+            application = AdmissionApplication.objects.create(
+                institution=campus.school,
+                application_number=application_number,
+                first_name=str(data.get("first_name")).strip()[:100],
+                middle_name=str(data.get("middle_name") or "").strip()[:100],
+                last_name=str(data.get("last_name")).strip()[:100],
+                date_of_birth=data.get("date_of_birth") or None,
+                gender=gender,
+                phone=str(data.get("phone") or "").strip()[:30],
+                address=str(data.get("address") or "").strip(),
+                campus=campus,
+                academic_year=year,
+                class_obj=class_obj,
+                section=section,
+                review_notes=(
+                    f"Guardian: {data.get('guardian_name')} "
+                    f"({data.get('guardian_phone')})"
+                ),
+                status="submitted",
+                submitted_at=timezone.now(),
+            )
+        except ValidationError as exc:
+            return Response(
+                getattr(exc, "message_dict", {"detail": exc.messages}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         return Response(
             {

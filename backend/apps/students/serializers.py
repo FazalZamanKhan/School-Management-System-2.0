@@ -174,6 +174,14 @@ class AdmissionApplicationSerializer(serializers.ModelSerializer):
         )
         if name_errors:
             raise serializers.ValidationError(name_errors)
+        date_of_birth = attrs.get(
+            "date_of_birth",
+            self.instance.date_of_birth if self.instance is not None else None,
+        )
+        if date_of_birth and date_of_birth > timezone.localdate():
+            raise serializers.ValidationError(
+                {"date_of_birth": "Date of birth cannot be in the future."}
+            )
         return attrs
 
 

@@ -796,3 +796,11 @@ class AdmissionApplicationValidationTests(TestCase):
         self.assertIn("first_name", body)
         self.assertIn("middle_name", body)
         self.assertIn("last_name", body)
+
+    def test_admission_application_rejects_future_date_of_birth(self):
+        response = self._create_application(
+            {"date_of_birth": "2031-02-01"}
+        )
+        self.assertEqual(response.status_code, 400)
+        body = json.loads(response.content)
+        self.assertIn("date_of_birth", body)
