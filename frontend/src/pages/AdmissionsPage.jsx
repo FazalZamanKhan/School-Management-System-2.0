@@ -151,6 +151,7 @@ export default function AdmissionsPage() {
   const [showAppForm, setShowAppForm] = useState(false);
   const [savingApp, setSavingApp] = useState(false);
   const [editingApp, setEditingApp] = useState(null);
+  const [appFormError, setAppFormError] = useState("");
 
   const [inqForm, setInqForm] = useState(EMPTY_INQUIRY_FORM);
   const [showInqForm, setShowInqForm] = useState(false);
@@ -282,6 +283,7 @@ export default function AdmissionsPage() {
 
   const appField = (name) => (event) => {
     const value = event.target.value;
+    setAppFormError("");
     setAppForm((prev) => {
       const next = { ...prev, [name]: value };
       if (name === "campus") {
@@ -318,6 +320,7 @@ export default function AdmissionsPage() {
 
   const openAppCreate = () => {
     clearBanners();
+    setAppFormError("");
     setEditingApp(null);
     setAppForm(EMPTY_APP_FORM);
     setShowAppForm(true);
@@ -325,6 +328,7 @@ export default function AdmissionsPage() {
 
   const openAppEdit = (application) => {
     clearBanners();
+    setAppFormError("");
     setEditingApp(application);
     setAppForm({
       first_name: application.first_name || "",
@@ -347,6 +351,7 @@ export default function AdmissionsPage() {
     event.preventDefault();
     setSavingApp(true);
     setError("");
+    setAppFormError("");
     setNotice("");
 
     const isEditing = Boolean(editingApp);
@@ -391,7 +396,7 @@ export default function AdmissionsPage() {
       );
       loadApplications();
     } catch (requestError) {
-      setError(requestError.message);
+      setAppFormError(requestError.message);
     } finally {
       setSavingApp(false);
     }
@@ -913,8 +918,14 @@ export default function AdmissionsPage() {
       )}
 
       {showAppForm && (
-        <Modal title={editingApp ? "Edit Admission Application" : "New Admission Application"} subtitle={editingApp ? "Update the applicant details below." : "Fill in the applicant details below."} onClose={() => { setShowAppForm(false); setEditingApp(null); }}>
+        <Modal title={editingApp ? "Edit Admission Application" : "New Admission Application"} subtitle={editingApp ? "Update the applicant details below." : "Fill in the applicant details below."} onClose={() => { setShowAppForm(false); setEditingApp(null); setAppFormError(""); }}>
           <form onSubmit={handleCreateApplication}>
+            {appFormError && (
+              <div className="state-card error" style={{ marginBottom: 16 }}>
+                <strong>{appFormError}</strong>
+              </div>
+            )}
+
             <div className="form-section">
               <h4>Applicant Information</h4>
               <div className="form-grid">
