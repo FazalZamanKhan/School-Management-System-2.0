@@ -47,7 +47,7 @@ export function PanelHeader({ title, subtitle, count, action }) {
         <h3>{title}</h3>
         <p>
           {count !== null && count !== undefined
-            ? `${count.toLocaleString()} ${subtitle}`
+            ? [count.toLocaleString(), subtitle].filter(Boolean).join(" ")
             : subtitle}
         </p>
       </div>
