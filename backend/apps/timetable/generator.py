@@ -23,6 +23,7 @@ specific classes/sections instead of the entire campus.
 import random
 
 from django.db import transaction
+from django.db.models import Q
 
 DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"]
 
@@ -60,11 +61,13 @@ def generate_timetable(
         Period.objects.filter(
             status="active",
             is_break=False,
+        ).filter(
+            Q(institution=campus.school) | Q(institution__isnull=True)
         ).order_by("number")
     )
 
     if not periods:
-        raise ValueError("No teaching periods configured.")
+        raise ValueError("No teaching periods configured for this school. Add periods before generating a timetable.")
 
     # Filter assignments by class/section if provided
     assignment_filters = {

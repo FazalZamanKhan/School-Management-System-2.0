@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.access import is_global
+from apps.accounts.middleware import require_active_school
 from apps.schools.models import AcademicYear, Campus, Class, Section
 
 
@@ -30,6 +31,10 @@ class TimetableGenerateView(APIView):
                 status=403,
             )
 
+        institution = require_active_school(request)
+        if institution is None:
+            return Response({"detail": "Select a school before generating a timetable."}, status=400)
+
         if request.data.get("confirm") is not True:
             return Response(
                 {
@@ -53,11 +58,11 @@ class TimetableGenerateView(APIView):
         campus = None
 
         if str(campus_raw).isdigit():
-            campus = Campus.objects.filter(pk=campus_raw).first()
+            campus = Campus.objects.filter(pk=campus_raw, school=institution).first()
 
         if campus is None:
             campus = Campus.objects.filter(
-                name__iexact=str(campus_raw)
+                name__iexact=str(campus_raw), school=institution
             ).first()
 
         if campus is None:
@@ -68,7 +73,7 @@ class TimetableGenerateView(APIView):
         year_id = request.data.get("academic_year")
 
         year = (
-            AcademicYear.objects.filter(pk=year_id).first()
+            AcademicYear.objects.filter(pk=year_id, school=institution).first()
             if year_id
             else (
                 AcademicYear.objects.filter(
@@ -92,22 +97,24 @@ class TimetableGenerateView(APIView):
 
         if class_id:
             from apps.schools.models import Class
-            if not Class.objects.filter(pk=class_id, campus=campus).exists():
+            if not Class.objects.filter(pk=class_id, unit__campus=campus).exists():
                 return Response(
                     {"detail": "Class not found in this campus."}, status=404
                 )
 
         if section_id:
             from apps.schools.models import Section
-            if not Section.objects.filter(pk=section_id, class_obj__campus=campus).exists():
+            if not Section.objects.filter(pk=section_id, class_obj__unit__campus=campus).exists():
                 return Response(
                     {"detail": "Section not found in this campus."}, status=404
                 )
 
-        try:
-            lessons = max(1, min(int(request.data.get("lessons_per_subject", 5)), 20))
-        except (TypeError, ValueError):
-            lessons = 5
+        raw_lessons = request.data.get("lessons_per_subject", 5)
+        if isinstance(raw_lessons, bool) or not str(raw_lessons).strip().lstrip("-").isdigit():
+            return Response({"detail": "Lessons per subject must be a whole number from 1 to 20."}, status=400)
+        lessons = int(raw_lessons)
+        if not 1 <= lessons <= 20:
+            return Response({"detail": "Lessons per subject must be between 1 and 20."}, status=400)
 
         days = request.data.get("days") or [
             "monday", "tuesday", "wednesday", "thursday", "friday",

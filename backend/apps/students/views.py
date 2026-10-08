@@ -1,4 +1,5 @@
 from datetime import date
+from uuid import uuid4
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Q
@@ -991,7 +992,26 @@ class InquiryListCreateView(generics.ListCreateAPIView):
         return queryset
 
     def perform_create(self, serializer):
-        serializer.save(institution=self.request.institution)
+        institution = require_active_school(self.request)
+        if institution is None:
+            raise RestValidationError({"institution": "Select a school before logging an inquiry."})
+
+        campus = serializer.validated_data.get("campus")
+        academic_year = serializer.validated_data.get("academic_year")
+        class_obj = serializer.validated_data.get("class_obj")
+        if campus:
+            assert_campus_allowed(self.request.user, campus.pk, request=self.request)
+        if academic_year and academic_year.school_id != institution.pk:
+            raise RestValidationError({"academic_year": "Choose a year from the active school."})
+        if class_obj and class_obj.unit.campus.school_id != institution.pk:
+            raise RestValidationError({"class_obj": "Choose a class from the active school."})
+        if campus and class_obj and class_obj.unit.campus_id != campus.pk:
+            raise RestValidationError({"class_obj": "Choose a class from the selected campus."})
+
+        serializer.save(
+            institution=institution,
+            inquiry_number=f"INQ-{uuid4().hex.upper()}",
+        )
 
 
 class InquiryDetailView(generics.RetrieveUpdateDestroyAPIView):

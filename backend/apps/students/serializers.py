@@ -1088,6 +1088,7 @@ class InquiryCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Inquiry
         fields = [
+            "inquiry_number",
             "first_name",
             "middle_name",
             "last_name",
@@ -1108,6 +1109,7 @@ class InquiryCreateSerializer(serializers.ModelSerializer):
             "assigned_to",
             "notes",
         ]
+        read_only_fields = ["inquiry_number"]
 
 
 class AcademicHistorySerializer(serializers.ModelSerializer):
