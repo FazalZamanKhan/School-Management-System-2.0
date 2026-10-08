@@ -195,9 +195,9 @@ function TeachersPage() {
       phone: teacher.phone || "",
       email: teacher.email || "",
       primary_campus:
-        teacher.primary_campus?.id ||
+        teacher.primary_campus ||
+        teacher.primary_campus_id ||
         teacher.campus?.id ||
-        teacher.campus ||
         "",
       joining_date: teacher.joining_date || "",
       designation: teacher.designation || "Teacher",
@@ -381,9 +381,10 @@ function TeachersPage() {
     const phone = teacher.phone || "";
 
     const campusName =
-      typeof teacher.campus === "object"
+      teacher.primary_campus_name ||
+      (typeof teacher.campus === "object"
         ? teacher.campus?.name || ""
-        : teacher.campus_name || "";
+        : teacher.campus_name || "");
 
     const teacherGender =
       teacher.gender || "";
@@ -400,9 +401,11 @@ function TeachersPage() {
       phone.toLowerCase().includes(searchValue);
 
     const campusId =
-      typeof teacher.campus === "object" && teacher.campus?.id != null
-        ? String(teacher.campus.id)
-        : String(teacher.campus ?? "");
+      teacher.primary_campus != null
+        ? String(teacher.primary_campus)
+        : typeof teacher.campus === "object" && teacher.campus?.id != null
+          ? String(teacher.campus.id)
+          : String(teacher.campus ?? "");
 
     const matchesCampus =
       !campus ||
@@ -452,6 +455,10 @@ function TeachersPage() {
   };
 
   const getCampusName = (teacher) => {
+    if (teacher.primary_campus_name) {
+      return teacher.primary_campus_name;
+    }
+
     if (typeof teacher.campus === "object") {
       return teacher.campus?.name || "—";
     }
