@@ -624,6 +624,10 @@ function StudentsPage() {
     setError("");
 
     try {
+      if ((form.middle_name || "").length > 100) {
+        throw new Error("Middle Name must be 100 characters or fewer.");
+      }
+
       const isEditing = Boolean(editingStudent);
 
       const url = isEditing
@@ -1552,6 +1556,12 @@ function StudentsPage() {
             </div>
 
             <form onSubmit={handleSubmit}>
+              {error && (
+                <div className="state-card error" style={{ marginBottom: 16 }}>
+                  <strong>{error}</strong>
+                </div>
+              )}
+
               <div className="form-section">
                 <h4>Personal Information</h4>
 
@@ -1598,6 +1608,7 @@ function StudentsPage() {
                       name="middle_name"
                       value={form.middle_name}
                       onChange={handleChange}
+                      maxLength={100}
                       placeholder="Middle name"
                     />
                   </label>
