@@ -187,6 +187,16 @@ class TeacherAPIRegressionTests(TestCase):
         self.assertIn("first_name", body)
         self.assertIn("last_name", body)
 
+    def test_teacher_api_rejects_phone_without_digits(self):
+        response = self._create(
+            self.admin_a,
+            self.school_a,
+            payload={"phone": "!!!"},
+        )
+        self.assertEqual(response.status_code, 400)
+        body = json.loads(response.content)
+        self.assertIn("phone", body)
+
     def test_teacher_is_not_visible_to_other_schools(self):
         response = self._create(self.admin_a, self.school_a)
         self.assertEqual(response.status_code, 201)

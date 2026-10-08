@@ -9,6 +9,16 @@ def _has_letter(value):
     return any(char.isalpha() for char in str(value or ""))
 
 
+def _phone_error(value):
+    text = str(value or "").strip()
+    if not text:
+        return None
+    allowed = set("0123456789+-() ")
+    if not any(char.isdigit() for char in text) or any(char not in allowed for char in text):
+        return "Enter a valid phone number using digits, spaces, +, -, or parentheses."
+    return None
+
+
 class TeacherSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
 
@@ -115,6 +125,11 @@ class TeacherSerializer(serializers.ModelSerializer):
             )
             if value and not _has_letter(value):
                 errors[field] = "Enter a name containing at least one letter."
+        phone_error = _phone_error(
+            attrs.get("phone", getattr(self.instance, "phone", "") if self.instance is not None else "")
+        )
+        if phone_error:
+            errors["phone"] = phone_error
         if errors:
             raise serializers.ValidationError(errors)
         return attrs

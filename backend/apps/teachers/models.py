@@ -172,6 +172,11 @@ class Teacher(SoftDeleteMixin):
             errors["membership"] = "Membership must belong to this user."
         if self.membership_id and self.primary_campus_id and self.primary_campus.school_id != self.membership.institution_id:
             errors["primary_campus"] = "Campus must belong to the membership institution."
+        phone = (self.phone or "").strip()
+        if phone:
+            allowed = set("0123456789+-() ")
+            if not any(char.isdigit() for char in phone) or any(char not in allowed for char in phone):
+                errors["phone"] = "Enter a valid phone number using digits, spaces, +, -, or parentheses."
         if errors:
             raise ValidationError(errors)
 
