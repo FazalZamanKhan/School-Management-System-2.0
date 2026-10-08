@@ -177,6 +177,8 @@ class Teacher(SoftDeleteMixin):
             allowed = set("0123456789+-() ")
             if not any(char.isdigit() for char in phone) or any(char not in allowed for char in phone):
                 errors["phone"] = "Enter a valid phone number using digits, spaces, +, -, or parentheses."
+        if self.date_of_birth and self.date_of_birth > timezone.localdate():
+            errors["date_of_birth"] = "Date of birth cannot be in the future."
         if errors:
             raise ValidationError(errors)
 

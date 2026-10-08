@@ -130,6 +130,12 @@ class TeacherSerializer(serializers.ModelSerializer):
         )
         if phone_error:
             errors["phone"] = phone_error
+        date_of_birth = attrs.get(
+            "date_of_birth",
+            getattr(self.instance, "date_of_birth", None) if self.instance is not None else None,
+        )
+        if date_of_birth and date_of_birth > timezone.localdate():
+            errors["date_of_birth"] = "Date of birth cannot be in the future."
         if errors:
             raise serializers.ValidationError(errors)
         return attrs

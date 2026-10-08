@@ -208,6 +208,16 @@ class TeacherAPIRegressionTests(TestCase):
         self.assertEqual(body["primary_campus"], self.campus_a.id)
         self.assertEqual(body["primary_campus_name"], self.campus_a.name)
 
+    def test_teacher_api_rejects_future_date_of_birth(self):
+        response = self._create(
+            self.admin_a,
+            self.school_a,
+            payload={"date_of_birth": "2027-02-01"},
+        )
+        self.assertEqual(response.status_code, 400)
+        body = json.loads(response.content)
+        self.assertIn("date_of_birth", body)
+
     def test_teacher_is_not_visible_to_other_schools(self):
         response = self._create(self.admin_a, self.school_a)
         self.assertEqual(response.status_code, 201)
