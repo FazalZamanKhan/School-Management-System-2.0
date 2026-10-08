@@ -67,6 +67,14 @@ function AutoGeneratePanel() {
   const run = () => {
     if (!campus) return;
 
+    const lessonCount = Number(lessons);
+    if (!Number.isInteger(lessonCount) || lessonCount < 1 || lessonCount > 20) {
+      const message = "Lessons per subject per week must be between 1 and 20.";
+      setError(message);
+      toast.error(message);
+      return;
+    }
+
     setBusy(true);
     setError("");
     setResult(null);
@@ -76,7 +84,7 @@ function AutoGeneratePanel() {
       headers: authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         campus: Number(campus),
-        lessons_per_subject: Number(lessons),
+        lessons_per_subject: lessonCount,
         ...(classId ? { class_id: Number(classId) } : {}),
         ...(sectionId ? { section_id: Number(sectionId) } : {}),
         confirm: true,
@@ -160,6 +168,13 @@ function AutoGeneratePanel() {
           className="primary-button"
           disabled={busy || !campus}
           onClick={() => {
+            const lessonCount = Number(lessons);
+            if (!Number.isInteger(lessonCount) || lessonCount < 1 || lessonCount > 20) {
+              const message = "Lessons per subject per week must be between 1 and 20.";
+              setError(message);
+              toast.error(message);
+              return;
+            }
             if (
               window.confirm(
                 `Replace the current timetable for "${scopeLabel}"?`
