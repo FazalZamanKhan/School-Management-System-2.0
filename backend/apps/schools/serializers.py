@@ -165,6 +165,11 @@ class ClassSerializer(serializers.ModelSerializer):
             )
         return value
 
+    def validate_level(self, value):
+        if value is not None and value < 0:
+            raise serializers.ValidationError("Class level cannot be negative.")
+        return value
+
 
 class SectionSerializer(serializers.ModelSerializer):
     class_name = serializers.CharField(

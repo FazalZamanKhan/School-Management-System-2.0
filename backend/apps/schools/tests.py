@@ -53,6 +53,13 @@ class AcademicStructureModelTests(TestCase):
 		self.assertFalse(serializer.is_valid())
 		self.assertIn("name", serializer.errors)
 
+	def test_class_serializer_rejects_negative_level(self):
+		serializer = ClassSerializer(
+			data={"unit": self.class_obj.unit_id, "name": "Grade X", "level": -1}
+		)
+		self.assertFalse(serializer.is_valid())
+		self.assertIn("level", serializer.errors)
+
 	def test_subject_offering_is_unique_for_class_and_year(self):
 		SubjectOffering.objects.create(
 			subject=self.subject,

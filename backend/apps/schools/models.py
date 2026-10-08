@@ -277,6 +277,8 @@ class Class(models.Model):
         errors = {}
         if self.name and not any(char.isalpha() for char in self.name):
             errors["name"] = "Enter a class name containing at least one letter."
+        if self.level is not None and self.level < 0:
+            errors["level"] = "Class level cannot be negative."
         if errors:
             raise ValidationError(errors)
 
@@ -822,5 +824,4 @@ class SubjectOffering(models.Model):
 
     def __str__(self):
         return f"{self.subject.name} ({self.class_obj.name})"
-
 
