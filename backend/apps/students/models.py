@@ -640,10 +640,15 @@ class Student(SoftDeleteMixin):
         return f"{self.admission_number} - {self.full_name}"
 
     def clean(self):
+        errors = {}
         if self.membership_id and self.user_id and self.membership.user_id != self.user_id:
-            raise ValidationError({"membership": "Membership must belong to this user."})
+            errors["membership"] = "Membership must belong to this user."
         if self.membership_id and self.primary_campus_id and self.primary_campus.school_id != self.membership.institution_id:
-            raise ValidationError({"primary_campus": "Campus must belong to the membership institution."})
+            errors["primary_campus"] = "Campus must belong to the membership institution."
+        if self.date_of_birth and self.date_of_birth > timezone.localdate():
+            errors["date_of_birth"] = "Date of birth cannot be in the future."
+        if errors:
+            raise ValidationError(errors)
 
     def can_transition_to(self, new_status):
         """Check if transition from current status to new_status is allowed."""
@@ -842,10 +847,15 @@ class Student(SoftDeleteMixin):
         return f"{self.admission_number} - {self.full_name}"
 
     def clean(self):
+        errors = {}
         if self.membership_id and self.user_id and self.membership.user_id != self.user_id:
-            raise ValidationError({"membership": "Membership must belong to this user."})
+            errors["membership"] = "Membership must belong to this user."
         if self.membership_id and self.primary_campus_id and self.primary_campus.school_id != self.membership.institution_id:
-            raise ValidationError({"primary_campus": "Campus must belong to the membership institution."})
+            errors["primary_campus"] = "Campus must belong to the membership institution."
+        if self.date_of_birth and self.date_of_birth > timezone.localdate():
+            errors["date_of_birth"] = "Date of birth cannot be in the future."
+        if errors:
+            raise ValidationError(errors)
 
     @property
     def full_name(self):

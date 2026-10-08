@@ -695,3 +695,13 @@ class StudentCreationInstitutionRegressionTests(TestCase):
         self.assertEqual(response.status_code, 400)
         body = json.loads(response.content)
         self.assertIn("primary_campus", body)
+
+    def test_student_api_rejects_future_date_of_birth(self):
+        response = self._create(
+            self.admin_a,
+            self.school_a,
+            payload={"date_of_birth": "2030-02-01"},
+        )
+        self.assertEqual(response.status_code, 400)
+        body = json.loads(response.content)
+        self.assertIn("date_of_birth", body)
