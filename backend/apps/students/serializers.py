@@ -166,6 +166,16 @@ class AdmissionApplicationSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
 
+    def validate(self, attrs):
+        name_errors = _letter_required_errors(
+            attrs,
+            ("first_name", "middle_name", "last_name"),
+            "Enter a name containing at least one letter.",
+        )
+        if name_errors:
+            raise serializers.ValidationError(name_errors)
+        return attrs
+
 
 class StudentLifecycleEventSerializer(serializers.ModelSerializer):
     event_type_display = serializers.CharField(source="get_event_type_display", read_only=True)
