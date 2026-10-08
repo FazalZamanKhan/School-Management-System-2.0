@@ -156,6 +156,7 @@ export default function AdmissionsPage() {
   const [inqForm, setInqForm] = useState(EMPTY_INQUIRY_FORM);
   const [showInqForm, setShowInqForm] = useState(false);
   const [savingInq, setSavingInq] = useState(false);
+  const [inquirySubmitError, setInquirySubmitError] = useState("");
 
   const [followInquiry, setFollowInquiry] = useState(null);
   const [followStatus, setFollowStatus] = useState("new");
@@ -404,6 +405,7 @@ export default function AdmissionsPage() {
 
   const openInquiryCreate = () => {
     clearBanners();
+    setInquirySubmitError("");
     setInqForm(EMPTY_INQUIRY_FORM);
     setShowInqForm(true);
   };
@@ -411,11 +413,10 @@ export default function AdmissionsPage() {
   const handleCreateInquiry = async (event) => {
     event.preventDefault();
     setSavingInq(true);
-    setError("");
+    setInquirySubmitError("");
     setNotice("");
 
     const body = {
-      inquiry_number: `INQ-${Date.now().toString().slice(-8)}`,
       first_name: inqForm.first_name,
       middle_name: inqForm.middle_name,
       last_name: inqForm.last_name,
@@ -441,13 +442,13 @@ export default function AdmissionsPage() {
         method: "POST",
         headers: jsonHeaders(),
         body: JSON.stringify(body),
-      });
+      }, "Unable to log inquiry.");
       setShowInqForm(false);
       setInqForm(EMPTY_INQUIRY_FORM);
       setNoticeOrError("Inquiry logged. The applicant has been assigned a fresh status pipeline.");
       loadInquiries();
     } catch (requestError) {
-      setError(requestError.message);
+      setInquirySubmitError(requestError.message);
     } finally {
       setSavingInq(false);
     }
@@ -1016,6 +1017,7 @@ export default function AdmissionsPage() {
 
       {showInqForm && (
         <Modal title="Log an Inquiry" subtitle="Capture a prospective applicant before they submit a formal application." onClose={() => setShowInqForm(false)}>
+          {inquirySubmitError && <div className="state-card error" role="alert">{inquirySubmitError}</div>}
           <form onSubmit={handleCreateInquiry}>
             <div className="form-section">
               <h4>Prospective Applicant</h4>

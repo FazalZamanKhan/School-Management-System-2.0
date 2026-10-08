@@ -31,6 +31,7 @@ function AutoGeneratePanel() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
+  const lessonsValid = Number.isInteger(Number(lessons)) && Number(lessons) >= 1 && Number(lessons) <= 20;
 
   useEffect(() => {
     if (!campus) {
@@ -65,7 +66,7 @@ function AutoGeneratePanel() {
   }, [classId]);
 
   const run = () => {
-    if (!campus) return;
+    if (!campus || !lessonsValid) return;
 
     const lessonCount = Number(lessons);
     if (!Number.isInteger(lessonCount) || lessonCount < 1 || lessonCount > 20) {
@@ -89,8 +90,8 @@ function AutoGeneratePanel() {
         ...(sectionId ? { section_id: Number(sectionId) } : {}),
         confirm: true,
       }),
-    })
-.then((data) => {
+    }, "Unable to generate timetable. Check periods and teacher assignments for the selected school.")
+    .then((data) => {
       setResult(data);
       const placed = data.sections || 0;
       const total = data.sections_total || placed;
@@ -162,11 +163,12 @@ function AutoGeneratePanel() {
             style={{ width: 64 }}
           />
         </label>
+        {!lessonsValid && <span className="field-hint" role="alert">Enter a whole number from 1 to 20.</span>}
 
         <button
           type="button"
           className="primary-button"
-          disabled={busy || !campus}
+          disabled={busy || !campus || !lessonsValid}
           onClick={() => {
             const lessonCount = Number(lessons);
             if (!Number.isInteger(lessonCount) || lessonCount < 1 || lessonCount > 20) {
@@ -209,7 +211,7 @@ export default function TimetablePage() {
   const { user, hasRole } = useAuth();
 
   const isTeacher = hasRole(["teacher"]);
-  const canGenerate = hasRole(["super_admin", "admin", "principal", "academic"]);
+  const canGenerate = hasRole(["super_admin", "admin", "org_admin", "head_office", "academic"]);
 
   const teacherName = user
     ? `${user.first_name || ""} ${user.last_name || ""}`.trim()
