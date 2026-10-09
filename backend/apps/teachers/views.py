@@ -44,6 +44,12 @@ class TeacherListCreateView(generics.ListCreateAPIView):
 
             if profile is not None:
                 queryset = queryset.filter(pk=profile.pk)
+            else:
+                # No teacher profile and not a manager: this role has no
+                # business seeing the teacher directory at all. Fail closed
+                # instead of falling through to the unfiltered,
+                # institution-wide queryset.
+                queryset = queryset.none()
 
         search = self.request.query_params.get("search")
 
