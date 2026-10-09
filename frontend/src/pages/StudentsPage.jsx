@@ -723,38 +723,52 @@ function StudentsPage() {
         const existingEnrollment =
           editingStudent?.current_enrollment;
 
+        const enrollmentFields = [
+          ["campus_id", enrolBody.campus],
+          ["class_id", enrolBody.class_obj],
+          ["section_id", enrolBody.section],
+          ["academic_year_id", enrolBody.academic_year],
+        ];
+        const enrollmentChanged =
+          !existingEnrollment ||
+          enrollmentFields.some(
+            ([field, value]) => Number(existingEnrollment[field]) !== value
+          );
+
         const enrolUrl = existingEnrollment
           ? `/api/students/enrollments/${existingEnrollment.enrollment_id}/`
           : "/api/students/enrollments/";
 
-        const enrolRes = await fetch(enrolUrl, {
-          method: existingEnrollment ? "PATCH" : "POST",
-          credentials: "include",
-          headers: jsonHeaders(),
-          body: JSON.stringify(enrolBody),
-        });
+        if (enrollmentChanged) {
+          const enrolRes = await fetch(enrolUrl, {
+            method: existingEnrollment ? "PATCH" : "POST",
+            credentials: "include",
+            headers: jsonHeaders(),
+            body: JSON.stringify(enrolBody),
+          });
 
-        if (!enrolRes.ok) {
-          const enrolText = await enrolRes.text();
-          let enrolData = {};
+          if (!enrolRes.ok) {
+            const enrolText = await enrolRes.text();
+            let enrolData = {};
 
-          try {
-            enrolData = enrolText ? JSON.parse(enrolText) : {};
-          } catch {
-            enrolData = {};
+            try {
+              enrolData = enrolText ? JSON.parse(enrolText) : {};
+            } catch {
+              enrolData = {};
+            }
+
+            throw new Error(
+              (isEditing
+                ? "Student saved but updating enrollment failed: "
+                : "Student was created but enrolling failed: ") +
+                (enrolData.detail ||
+                  Object.entries(enrolData)
+                    .map(([f, v]) => `${f}: ${v}`)
+                    .join(" | ") ||
+                  enrolText ||
+                  `HTTP ${enrolRes.status}`)
+            );
           }
-
-          throw new Error(
-            (isEditing
-              ? "Student saved but updating enrollment failed: "
-              : "Student was created but enrolling failed: ") +
-              (enrolData.detail ||
-                Object.entries(enrolData)
-                  .map(([f, v]) => `${f}: ${v}`)
-                  .join(" | ") ||
-                enrolText ||
-                `HTTP ${enrolRes.status}`)
-          );
         }
       }
 
