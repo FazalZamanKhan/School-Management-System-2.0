@@ -75,10 +75,28 @@ class RouteListView(generics.ListCreateAPIView):
     permission_classes = [IsAccountantRole]
 
     def get_queryset(self):
-        return transport_queryset(
+        queryset = transport_queryset(
             Route.objects.all().prefetch_related("stops"),
             self.request,
         )
+        search = self.request.query_params.get("q") or self.request.query_params.get("search")
+        if search:
+            queryset = queryset.filter(
+                Q(name__icontains=search)
+                | Q(description__icontains=search)
+                | Q(start_point__icontains=search)
+                | Q(end_point__icontains=search)
+            )
+        campus = self.request.query_params.get("campus")
+        if campus:
+            queryset = queryset.filter(campus_id=campus)
+        status_filter = self.request.query_params.get("status")
+        if status_filter is not None and status_filter != "":
+            if status_filter.lower() in ("true", "1", "active"):
+                queryset = queryset.filter(status=True)
+            elif status_filter.lower() in ("false", "0", "inactive"):
+                queryset = queryset.filter(status=False)
+        return queryset
 
     def perform_create(self, serializer):
         campus = serializer.validated_data.get("campus")
@@ -110,6 +128,19 @@ class TransportAssignmentListView(generics.ListCreateAPIView):
             "stop",
         ).distinct()
         queryset = apply_campus_scope(queryset, self.request, "route__campus_id")
+
+        search = self.request.query_params.get("q") or self.request.query_params.get("search")
+        if search:
+            queryset = queryset.filter(
+                Q(student__first_name__icontains=search)
+                | Q(student__last_name__icontains=search)
+                | Q(student__admission_number__icontains=search)
+                | Q(route__name__icontains=search)
+            )
+
+        campus = self.request.query_params.get("campus")
+        if campus:
+            queryset = queryset.filter(route__campus_id=campus)
 
         route = self.request.query_params.get("route")
 
