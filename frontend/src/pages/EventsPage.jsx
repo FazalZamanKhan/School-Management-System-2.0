@@ -66,6 +66,7 @@ export default function EventsPage() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [formError, setFormError] = useState("");
 
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -116,12 +117,14 @@ export default function EventsPage() {
   };
 
   const openAddEvent = () => {
+    setFormError("");
     setEditingEvent(null);
     setForm(EMPTY_FORM);
     setShowForm(true);
   };
 
   const openEditEvent = (event) => {
+    setFormError("");
     const audience = Array.isArray(event.audiences)
       ? event.audiences[0]
       : null;
@@ -143,22 +146,28 @@ export default function EventsPage() {
     setShowForm(true);
   };
 
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingEvent(null);
+    setFormError("");
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
 
     const start = new Date(form.start_datetime);
     const end = new Date(form.end_datetime);
     if (!form.start_datetime || !form.end_datetime || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-      setError("Enter valid start and end dates and times.");
+      setFormError("Enter valid start and end dates and times.");
       return;
     }
     if (end <= start) {
-      setError("Event end time must be later than the start time.");
+      setFormError("Event end time must be later than the start time.");
       return;
     }
 
     setSaving(true);
-    setError("");
+    setFormError("");
 
     try {
       const isEditing = Boolean(editingEvent);
@@ -205,12 +214,11 @@ export default function EventsPage() {
         throw new Error(message || `Unable to ${isEditing ? "update" : "create"} event.`);
       }
 
-      setShowForm(false);
+      closeForm();
       setForm(EMPTY_FORM);
-      setEditingEvent(null);
       await loadEvents();
     } catch (err) {
-      setError(err.message);
+      setFormError(err.message);
     } finally {
       setSaving(false);
     }
@@ -406,8 +414,8 @@ export default function EventsPage() {
         <div
           className="modal-overlay"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              setShowForm(false);
+            if (!saving && event.target === event.currentTarget) {
+              closeForm();
             }
           }}
         >
@@ -428,10 +436,7 @@ export default function EventsPage() {
 
               <button
                 className="modal-close"
-                onClick={() => {
-                  setShowForm(false);
-                  setEditingEvent(null);
-                }}
+                onClick={closeForm}
                 disabled={saving}
               >
                 <X size={18} />
@@ -535,14 +540,13 @@ export default function EventsPage() {
                 </div>
               </div>
 
+              {formError && <div className="state-card error" role="alert">{formError}</div>}
+
               <div className="modal-footer">
                 <button
                   type="button"
                   className="secondary-button"
-                  onClick={() => {
-                    setShowForm(false);
-                    setEditingEvent(null);
-                  }}
+                  onClick={closeForm}
                   disabled={saving}
                 >
                   Cancel
