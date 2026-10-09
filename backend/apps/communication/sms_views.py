@@ -7,7 +7,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.accounts.access import get_institution, is_global
+from apps.accounts.access import get_institution, is_global, assert_campus_allowed
+from apps.accounts.middleware import require_active_school
 from apps.students.models import Student
 from apps.teachers.models import Teacher
 
@@ -82,13 +83,36 @@ class SMSBroadcastView(APIView):
         phone_numbers = set()
 
         if recipient_ids:
-            phone_numbers.update(_collect_phones(recipient_ids))
+            institution = require_active_school(request)
+            if institution is None:
+                return Response({"detail": "Select a school before sending SMS."}, status=400)
+            if not isinstance(recipient_ids, list) or any(
+                isinstance(pk, bool) or not str(pk).isdigit() for pk in recipient_ids
+            ):
+                return Response({"detail": "recipient_ids must be a list of user IDs."}, status=400)
+            requested_ids = {int(pk) for pk in recipient_ids}
+            recipients = User.objects.filter(
+                pk__in=requested_ids, is_active=True,
+                memberships__institution=institution, memberships__status="active",
+            ).distinct()
+            if campus_id:
+                assert_campus_allowed(user, campus_id, request=request)
+                recipients = recipients.filter(
+                    Q(staff_profile__primary_campus_id=campus_id)
+                    | Q(teacher_profile__primary_campus_id=campus_id)
+                    | Q(student_profile__enrollments__campus_id=campus_id,
+                        student_profile__enrollments__status="active")
+                ).distinct()
+            allowed_ids = set(recipients.values_list("pk", flat=True))
+            if allowed_ids != requested_ids:
+                return Response({"detail": "One or more recipients are outside the selected school or campus."}, status=403)
+            phone_numbers.update(_collect_phones(allowed_ids))
 
             student_ids = list(
                 User.objects.filter(
-                    id__in=recipient_ids,
+                    id__in=allowed_ids,
                     student_profile__isnull=False,
-                ).values_list("student_profile_id", flat=True)
+                ).values_list("student_profile__id", flat=True)
             )
             if student_ids:
                 phone_numbers.update(
