@@ -120,6 +120,31 @@ class AcademicYearTermWorkflowApiTests(TestCase):
         self.year_a1.refresh_from_db()
         self.assertEqual(self.year_a1.status, "completed")
 
+    def test_create_year_rejects_reversed_date_range(self):
+        response = self.client_a.post(
+            "/api/schools/academic-years/",
+            {
+                "name": "Invalid Range",
+                "start_date": "2027-06-30",
+                "end_date": "2026-10-01",
+                "status": "active",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, http_status.HTTP_400_BAD_REQUEST)
+        self.assertIn("end_date", response.data)
+
+    def test_update_year_rejects_reversed_date_range(self):
+        response = self.client_a.patch(
+            f"/api/schools/academic-years/{self.year_a1.pk}/",
+            {"end_date": "2026-07-31"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, http_status.HTTP_400_BAD_REQUEST)
+        self.assertIn("end_date", response.data)
+
     def test_mark_upcoming_year(self):
         response = self.client_a.post(
             f"/api/schools/academic-years/{self.year_a1.pk}/mark-upcoming/"
