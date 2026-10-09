@@ -941,6 +941,7 @@ class BulkInvoiceCreateView(APIView):
         try:
             fee_structure = FeeStructure.objects.get(
                 academic_year_id=academic_year_id,
+                academic_year__school=request.institution,
                 campus_id=campus_id,
                 class_obj_id=class_obj_id,
                 category_id=category_id,
@@ -990,7 +991,7 @@ class BulkInvoiceCreateView(APIView):
                 invoice = Invoice.objects.create(
                     invoice_number=next_invoice_number(request.institution),
                     institution=request.institution,
-                    campus=campus_id,
+                    campus_id=campus_id,
                     enrollment=enrollment,
                     student=enrollment.student,
                     academic_year=enrollment.academic_year,
