@@ -110,3 +110,10 @@ class TransportAssignmentSerializer(serializers.ModelSerializer):
             "status",
             "created_at",
         ]
+
+    def validate(self, attrs):
+        route = attrs.get("route") or (self.instance.route if self.instance else None)
+        stop = attrs.get("stop") or (self.instance.stop if self.instance else None)
+        if stop and route and stop.route_id != route.id:
+            raise serializers.ValidationError({"stop": "The stop must belong to the selected route."})
+        return attrs
