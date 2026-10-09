@@ -68,7 +68,14 @@ export default function DigitalIdsPage() {
 
     fetch(`${slug.endpoint}?limit=100`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : []))
-      .then((data) => setHolders(Array.isArray(data) ? data : []))
+      .then((data) => {
+        const list = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.results)
+            ? data.results
+            : [];
+        setHolders(list);
+      })
       .catch(() => setHolders([]))
       .finally(() => setHoldersLoading(false));
   };
