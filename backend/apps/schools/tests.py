@@ -76,6 +76,86 @@ class AcademicStructureModelTests(TestCase):
 			duplicate.full_clean()
 
 
+class AcademicYearDateValidationTests(TestCase):
+	"""Regression: AcademicYearSerializer must reject an end_date that is
+	not after start_date. A record with start_date after end_date was
+	previously accepted (no validation existed at the model, serializer
+	or view layer).
+	"""
+
+	def setUp(self):
+		self.school = School.objects.create(name="Date Validation School")
+		self.user = get_user_model().objects.create_user(
+			username="date-admin",
+			email="date-admin@test.edu",
+			password="TestPass123!",
+		)
+		membership = InstitutionMembership.objects.create(
+			user=self.user,
+			institution=self.school,
+		)
+		RoleAssignment.objects.create(membership=membership, role=Role.ADMIN)
+		self.client = APIClient()
+		self.client.login(username="date-admin", password="TestPass123!")
+
+	def test_create_rejects_end_date_before_start_date(self):
+		response = self.client.post(
+			"/api/schools/academic-years/",
+			{
+				"name": "Invalid Year",
+				"start_date": "2027-06-30",
+				"end_date": "2026-10-01",
+			},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 400)
+		self.assertIn("end_date", response.data)
+
+	def test_create_rejects_equal_start_and_end_date(self):
+		response = self.client.post(
+			"/api/schools/academic-years/",
+			{
+				"name": "Zero Length Year",
+				"start_date": "2026-10-01",
+				"end_date": "2026-10-01",
+			},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 400)
+		self.assertIn("end_date", response.data)
+
+	def test_create_accepts_valid_date_range(self):
+		response = self.client.post(
+			"/api/schools/academic-years/",
+			{
+				"name": "Valid Year",
+				"start_date": "2026-08-01",
+				"end_date": "2027-07-31",
+			},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 201)
+
+	def test_update_rejects_end_date_before_start_date(self):
+		year = AcademicYear.objects.create(
+			school=self.school,
+			name="Existing Year",
+			start_date=date(2026, 8, 1),
+			end_date=date(2027, 7, 31),
+		)
+
+		response = self.client.patch(
+			f"/api/schools/academic-years/{year.pk}/",
+			{"end_date": "2026-01-01"},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 400)
+
+
 class TenantBrandingApiTests(TestCase):
 	def setUp(self):
 		self.school_a = School.objects.create(name="School A", code="school-a")
