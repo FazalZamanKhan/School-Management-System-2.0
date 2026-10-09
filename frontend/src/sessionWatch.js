@@ -89,6 +89,10 @@ export function installSessionWatch() {
           };
           checkSession();
         }
+      }, () => {
+        // Observe failures without creating a second unhandled rejection.
+        // The original promise is returned so the caller still handles aborts
+        // and network errors using its own request lifecycle.
       });
     }
 
