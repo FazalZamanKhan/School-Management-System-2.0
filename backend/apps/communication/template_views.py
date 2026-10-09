@@ -6,17 +6,23 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.accounts.access import get_institution, is_global
+from apps.accounts.access import get_institution
+from apps.accounts.middleware import require_active_school
+from apps.accounts.models import Role
 from apps.accounts.permissions import IsAdminRole
 
 from .models import MessageTemplate
 
 
-def _get_templates_queryset(request):
+def _get_templates_queryset(request, *, writable=False):
     """Return institution-scoped templates for the current user."""
-    institution = get_institution(request)
-    if institution is None or is_global(request.user):
+    if request.user.is_superuser or request.user.has_role(Role.SUPER_ADMIN):
         return MessageTemplate.objects.all()
+    institution = require_active_school(request)
+    if institution is None:
+        return MessageTemplate.objects.none()
+    if writable:
+        return MessageTemplate.objects.filter(institution=institution)
     return MessageTemplate.objects.filter(
         Q(institution=institution) | Q(institution__isnull=True)
     )
@@ -57,6 +63,8 @@ class MessageTemplateListView(APIView):
             )
 
         institution = get_institution(request)
+        if require_active_school(request) is None:
+            return Response({"detail": "Select a school before creating a template."}, status=400)
         template = MessageTemplate.objects.create(
             name=name,
             channel=request.data.get("channel", "sms"),
@@ -79,7 +87,7 @@ class MessageTemplateDetailView(APIView):
     permission_classes = [IsAuthenticated, IsAdminRole]
 
     def get_object(self, request, pk):
-        queryset = _get_templates_queryset(request)
+        queryset = _get_templates_queryset(request, writable=request.method in ("PUT", "DELETE"))
         try:
             return queryset.get(pk=pk)
         except MessageTemplate.DoesNotExist:
