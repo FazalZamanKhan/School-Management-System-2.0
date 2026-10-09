@@ -8,6 +8,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.access import get_institution, is_global
+from apps.accounts.middleware import require_active_school
+from apps.accounts.models import Role
 from apps.students.models import Student
 from apps.teachers.models import Teacher
 
@@ -240,10 +242,9 @@ class SMSLogListView(APIView):
         if not is_global(user):
             qs = qs.filter(sent_by=user)
 
-        if institution is not None and not is_global(user):
-            qs = qs.filter(
-                Q(institution=institution) | Q(institution__isnull=True)
-            )
+        if not (user.is_superuser or user.has_role(Role.SUPER_ADMIN)):
+            institution = require_active_school(request)
+            qs = qs.filter(institution=institution) if institution is not None else qs.none()
 
         status_filter = request.query_params.get("status")
         if status_filter:
