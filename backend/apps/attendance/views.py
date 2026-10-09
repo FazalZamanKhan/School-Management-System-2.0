@@ -150,7 +150,7 @@ class AttendanceBulkMarkView(APIView):
         campus = data.get("campus")
         class_obj = data.get("class")
         section = data.get("section")
-        day = data.get("date")
+        day_value = data.get("date")
         records = data.get("records") or []
 
         for field in [
@@ -169,6 +169,18 @@ class AttendanceBulkMarkView(APIView):
         if not records:
             return Response(
                 {"detail": "records is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            day = (
+                day_value
+                if isinstance(day_value, date_cls)
+                else date_cls.fromisoformat(str(day_value))
+            )
+        except (TypeError, ValueError):
+            return Response(
+                {"date": "Enter a valid date in YYYY-MM-DD format."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
