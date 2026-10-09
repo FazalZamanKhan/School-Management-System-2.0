@@ -76,6 +76,116 @@ class AcademicStructureModelTests(TestCase):
 			duplicate.full_clean()
 
 
+class AcademicYearSingleActiveInvariantTests(TestCase):
+	"""Regression: at most one AcademicYear may be 'active' per school.
+
+	AcademicYearActionView already enforced this on the dedicated
+	/activate/ action, but plain create/update could bypass it entirely
+	(status defaults to "active" on the model, and neither
+	AcademicYearListView.perform_create nor
+	AcademicYearDetailView.perform_update deactivated any sibling year).
+	"""
+
+	def setUp(self):
+		self.school = School.objects.create(name="Single Active School")
+		self.user = get_user_model().objects.create_user(
+			username="single-active-admin",
+			email="single-active-admin@test.edu",
+			password="TestPass123!",
+		)
+		membership = InstitutionMembership.objects.create(
+			user=self.user,
+			institution=self.school,
+		)
+		RoleAssignment.objects.create(membership=membership, role=Role.ADMIN)
+		self.client = APIClient()
+		self.client.login(username="single-active-admin", password="TestPass123!")
+
+	def test_creating_a_second_active_year_completes_the_first(self):
+		first = AcademicYear.objects.create(
+			school=self.school,
+			name="Year One",
+			start_date=date(2025, 8, 1),
+			end_date=date(2026, 7, 31),
+			status="active",
+		)
+
+		response = self.client.post(
+			"/api/schools/academic-years/",
+			{
+				"name": "Year Two",
+				"start_date": "2026-08-01",
+				"end_date": "2027-07-31",
+				"status": "active",
+			},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 201)
+		first.refresh_from_db()
+		self.assertEqual(first.status, "completed")
+
+		active_count = AcademicYear.objects.filter(
+			school=self.school, status="active",
+		).count()
+		self.assertEqual(active_count, 1)
+
+	def test_updating_a_year_to_active_completes_others(self):
+		first = AcademicYear.objects.create(
+			school=self.school,
+			name="Year One",
+			start_date=date(2025, 8, 1),
+			end_date=date(2026, 7, 31),
+			status="active",
+		)
+		second = AcademicYear.objects.create(
+			school=self.school,
+			name="Year Two",
+			start_date=date(2026, 8, 1),
+			end_date=date(2027, 7, 31),
+			status="upcoming",
+		)
+
+		response = self.client.patch(
+			f"/api/schools/academic-years/{second.pk}/",
+			{"status": "active"},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 200)
+		first.refresh_from_db()
+		self.assertEqual(first.status, "completed")
+
+		active_count = AcademicYear.objects.filter(
+			school=self.school, status="active",
+		).count()
+		self.assertEqual(active_count, 1)
+
+	def test_creating_a_non_active_year_does_not_touch_existing_active_year(self):
+		first = AcademicYear.objects.create(
+			school=self.school,
+			name="Year One",
+			start_date=date(2025, 8, 1),
+			end_date=date(2026, 7, 31),
+			status="active",
+		)
+
+		response = self.client.post(
+			"/api/schools/academic-years/",
+			{
+				"name": "Year Two",
+				"start_date": "2026-08-01",
+				"end_date": "2027-07-31",
+				"status": "upcoming",
+			},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 201)
+		first.refresh_from_db()
+		self.assertEqual(first.status, "active")
+
+
 class TenantBrandingApiTests(TestCase):
 	def setUp(self):
 		self.school_a = School.objects.create(name="School A", code="school-a")
