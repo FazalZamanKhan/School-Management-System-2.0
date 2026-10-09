@@ -1043,6 +1043,7 @@ class StudentDocument(SoftDeleteMixin):
                     "jpeg",
                     "png",
                     "gif",
+                    "txt",
                 ],
             ),
         ],

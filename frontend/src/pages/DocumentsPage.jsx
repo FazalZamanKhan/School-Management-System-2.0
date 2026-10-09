@@ -97,7 +97,8 @@ function UploadDocumentModal({ onClose, onDone }) {
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.detail || "Upload failed.");
+        const msg = errData.detail || errData.file || (typeof errData === "object" && Object.values(errData)[0]) || "Upload failed.";
+        throw new Error(Array.isArray(msg) ? msg[0] : String(msg));
       }
 
       onDone();

@@ -138,85 +138,114 @@ class DocumentUploadView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if entity_type == "student":
-            student_id = request.data.get("entity_id")
-            if not student_id:
-                return Response(
-                    {"detail": "entity_id is required for student documents."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            from apps.students.models import Student
-            from apps.accounts.access import restrict_to_allowed_campuses
-
-            student = (
-                restrict_to_allowed_campuses(
-                    Student.objects.filter(pk=student_id),
-                    request.user,
-                    "primary_campus_id",
-                )
-                .filter(institution=request.institution)
-                .first()
-            )
-
-            if student is None:
-                return Response(
-                    {"detail": "Student not found."},
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-
-            doc = StudentDocument.objects.create(
-                student=student,
-                document_type=request.data.get("document_type", "other"),
-                title=request.data.get("title", file.name),
-                file=file,
-                notes=request.data.get("notes", ""),
-                uploaded_by=request.user,
-            )
-
-        elif entity_type == "employee":
-            employee_id = request.data.get("entity_id")
-            if not employee_id:
-                return Response(
-                    {"detail": "entity_id is required for employee documents."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            from apps.hr.models import Employee
-            from apps.accounts.access import restrict_to_allowed_campuses
-
-            employee = (
-                restrict_to_allowed_campuses(
-                    Employee.objects.filter(pk=employee_id),
-                    request.user,
-                    "primary_campus_id",
-                )
-                .filter(institution=request.institution)
-                .first()
-            )
-
-            if employee is None:
-                return Response(
-                    {"detail": "Employee not found."},
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-
-            doc = EmployeeDocument.objects.create(
-                employee=employee,
-                document_type=request.data.get("document_type", "other"),
-                title=request.data.get("title", file.name),
-                file=file,
-                notes=request.data.get("notes", ""),
-                expiry_date=request.data.get("expiry_date") or None,
-                uploaded_by=request.user,
-            )
-        else:
+        # Validate file extension
+        ALLOWED_EXTENSIONS = ["pdf", "doc", "docx", "jpg", "jpeg", "png", "gif", "txt"]
+        ext = file.name.split(".")[-1].lower() if "." in file.name else ""
+        if ext not in ALLOWED_EXTENSIONS:
             return Response(
-                {"detail": "Invalid entity_type. Must be 'student' or 'employee'."},
+                {
+                    "detail": (
+                        f"Unsupported file format (.{ext}). "
+                        "Allowed formats: PDF, DOC, DOCX, TXT, JPG, PNG, GIF."
+                    )
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        return Response(
-            {"id": doc.id, "detail": "Document uploaded successfully."},
-            status=status.HTTP_201_CREATED,
-        )
+        active_inst = getattr(request, "institution", None)
+
+        try:
+            if entity_type == "student":
+                student_id = request.data.get("entity_id")
+                if not student_id:
+                    return Response(
+                        {"detail": "entity_id is required for student documents."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                from apps.students.models import Student
+
+                student = Student.objects.filter(pk=student_id).first()
+
+                if student is None:
+                    return Response(
+                        {"detail": "Student not found."},
+                        status=status.HTTP_404_NOT_FOUND,
+                    )
+
+                if active_inst:
+                    belongs = (
+                        student.institution_id == active_inst.id
+                        or getattr(getattr(student, "primary_campus", None), "school_id", None) == active_inst.id
+                        or student.enrollments.filter(academic_year__school=active_inst).exists()
+                    )
+                    if not belongs and not request.user.is_superuser:
+                        return Response(
+                            {"detail": "Student does not belong to your active school."},
+                            status=status.HTTP_403_FORBIDDEN,
+                        )
+
+                doc = StudentDocument.objects.create(
+                    student=student,
+                    institution=student.institution or active_inst,
+                    document_type=request.data.get("document_type", "other"),
+                    title=request.data.get("title") or file.name,
+                    file=file,
+                    notes=request.data.get("notes", ""),
+                    uploaded_by=request.user,
+                )
+
+            elif entity_type == "employee":
+                employee_id = request.data.get("entity_id")
+                if not employee_id:
+                    return Response(
+                        {"detail": "entity_id is required for employee documents."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                from apps.hr.models import Employee
+
+                employee = Employee.objects.filter(pk=employee_id).first()
+
+                if employee is None:
+                    return Response(
+                        {"detail": "Employee not found."},
+                        status=status.HTTP_404_NOT_FOUND,
+                    )
+
+                if active_inst:
+                    belongs = (
+                        employee.institution_id == active_inst.id
+                        or getattr(getattr(employee, "primary_campus", None), "school_id", None) == active_inst.id
+                    )
+                    if not belongs and not request.user.is_superuser:
+                        return Response(
+                            {"detail": "Employee does not belong to your active school."},
+                            status=status.HTTP_403_FORBIDDEN,
+                        )
+
+                doc = EmployeeDocument.objects.create(
+                    employee=employee,
+                    campus=employee.primary_campus,
+                    document_type=request.data.get("document_type", "other"),
+                    title=request.data.get("title") or file.name,
+                    file=file,
+                    notes=request.data.get("notes", ""),
+                    expiry_date=request.data.get("expiry_date") or None,
+                    uploaded_by=request.user,
+                )
+            else:
+                return Response(
+                    {"detail": "Invalid entity_type. Must be 'student' or 'employee'."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            return Response(
+                {"id": doc.id, "detail": "Document uploaded successfully."},
+                status=status.HTTP_201_CREATED,
+            )
+        except Exception as exc:
+            return Response(
+                {"detail": f"Upload failed: {str(exc)}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
