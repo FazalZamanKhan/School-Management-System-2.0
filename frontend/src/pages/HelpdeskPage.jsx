@@ -141,12 +141,16 @@ export default function HelpdeskPage() {
 
   const createTicket = (event) => {
     event.preventDefault();
+    if (!form.description || !form.description.trim()) {
+      setFormError("Please enter a description for the ticket.");
+      return;
+    }
     setSaving(true);
     setFormError("");
 
     const payload = {
       subject: form.subject,
-      description: form.description,
+      description: form.description.trim(),
       priority: form.priority,
     };
     if (form.category) payload.category = Number(form.category);
@@ -378,8 +382,8 @@ export default function HelpdeskPage() {
                   </label>
 
                   <label className="form-span">
-                    Description
-                    <textarea name="description" value={form.description} onChange={handleChange} rows="4" placeholder="What needs attention?" />
+                    Description *
+                    <textarea name="description" value={form.description} onChange={handleChange} rows="4" placeholder="What needs attention?" required />
                   </label>
 
                   <label>

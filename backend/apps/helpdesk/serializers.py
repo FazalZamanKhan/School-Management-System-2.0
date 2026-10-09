@@ -103,6 +103,11 @@ class SupportTicketSerializer(serializers.ModelSerializer):
             return obj.assignee.get_full_name() or obj.assignee.username
         return None
 
+    def validate_description(self, value):
+        if not value or not str(value).strip():
+            raise serializers.ValidationError("Description is required.")
+        return value.strip()
+
     def get_can_edit(self, obj):
         request = self._request()
         if not request or not request.user.is_authenticated:
