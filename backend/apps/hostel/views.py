@@ -187,10 +187,23 @@ class AllocationListCreateView(generics.ListCreateAPIView):
 
         student = serializer.validated_data.get("student")
 
-        if (
-            student is None
-            or student.institution_id != institution.id
-        ):
+        if student is None:
+            raise serializers.ValidationError(
+                {"student": "Selected student does not belong to your school."}
+            )
+
+        student_belongs = (
+            student.institution_id == institution.id
+            or (
+                student.institution_id is None
+                and (
+                    getattr(getattr(student, "primary_campus", None), "school_id", None) == institution.id
+                    or student.enrollments.filter(academic_year__school=institution).exists()
+                )
+            )
+        )
+
+        if not student_belongs:
             raise serializers.ValidationError(
                 {"student": "Selected student does not belong to your school."}
             )

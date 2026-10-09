@@ -102,10 +102,9 @@ export default function HostelPage() {
 
     const { signal } = scopeRef.current;
 
-    fetch("/api/students/?page_size=1000", { credentials: "include", signal })
-      .then((r) => (r.ok ? r.json() : { results: [] }))
+    apiFetch("/api/students/?page_size=1000", { signal })
       .then((json) => {
-        if (!signal.aborted) setStudents(json.results || []);
+        if (!signal.aborted) setStudents(Array.isArray(json) ? json : json.results || []);
       })
       .catch(() => {});
   }, [schoolId]);

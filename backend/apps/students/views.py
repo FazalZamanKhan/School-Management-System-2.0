@@ -608,8 +608,8 @@ class StudentListCreateView(generics.ListCreateAPIView):
         # Never expose a student of another active school.
         queryset = queryset.filter(
             Q(institution=institution)
-            | Q(enrollments__academic_year__school=institution)
-        )
+            | (Q(institution__isnull=True) & Q(enrollments__academic_year__school=institution))
+        ).distinct()
 
         user = self.request.user
 
