@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.db.models import Q
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -6,12 +7,44 @@ from rest_framework.response import Response
 from apps.accounts.access import apply_campus_scope
 from apps.accounts.permissions import IsStaffRole
 from apps.audit.models import record_audit
+from apps.accounts.scopes import student_class_ids, teacher_class_ids, parent_student_class_ids
 
 from .models import Event, EventAudience, EventRSVP
 from .serializers import (
     EventRSVPSerializer,
     EventSerializer,
 )
+
+
+def visible_event_queryset(request):
+    queryset = apply_campus_scope(
+        Event.objects.select_related("school", "campus", "created_by").prefetch_related("audiences", "rsvps"),
+        request, "campus_id", institution_field="school_id",
+    )
+    user = request.user
+    institution = getattr(request, "institution", None)
+    if user.is_superuser or user.has_any_role(["super_admin", "admin", "academic"], institution=institution):
+        return queryset
+
+    roles = set(user.get_roles(institution))
+    audience = Q(audiences__isnull=True) | Q(audiences__audience_type="everyone")
+    audience |= Q(audiences__audience_type="role", audiences__role__in=roles)
+    if "student" in roles:
+        audience |= Q(audiences__audience_type="students")
+    if "teacher" in roles:
+        audience |= Q(audiences__audience_type="teachers")
+    if roles.intersection(IsStaffRole.roles):
+        audience |= Q(audiences__audience_type="staff")
+
+    classes = set()
+    if "student" in roles:
+        classes.update(student_class_ids(user))
+    if "teacher" in roles:
+        classes.update(teacher_class_ids(user))
+    if "parent" in roles:
+        classes.update(parent_student_class_ids(user))
+    audience |= Q(audiences__audience_type="class", audiences__class_obj_id__in=classes)
+    return queryset.filter(status="published").filter(audience).distinct()
 
 
 class EventListCreateView(generics.ListCreateAPIView):
@@ -28,21 +61,7 @@ class EventListCreateView(generics.ListCreateAPIView):
         return super().get_permissions()
 
     def get_queryset(self):
-        queryset = Event.objects.select_related(
-            "school",
-            "campus",
-            "created_by",
-        ).prefetch_related("audiences", "rsvps")
-
-        user = self.request.user
-
-        # Non-admin roles only see published events.
-        if not user.has_any_role(
-            ["super_admin", "admin", "academic"]
-        ):
-            queryset = queryset.filter(status="published")
-
-        queryset = apply_campus_scope(queryset, self.request, "campus_id", institution_field="school_id")
+        queryset = visible_event_queryset(self.request)
 
         status_param = self.request.query_params.get("status")
 
@@ -109,17 +128,7 @@ class EventDetailView(generics.RetrieveUpdateDestroyAPIView):
         return super().get_permissions()
 
     def get_queryset(self):
-        queryset = apply_campus_scope(
-            Event.objects.select_related(
-                "school",
-                "campus",
-                "created_by",
-            ).prefetch_related("audiences", "rsvps"),
-            self.request,
-            "campus_id",
-            institution_field="school_id",
-        )
-        return queryset
+        return visible_event_queryset(self.request)
 
     def perform_update(self, serializer):
         event = serializer.save()
@@ -170,18 +179,8 @@ class EventRSVPView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
-        try:
-            event = (
-                Event.objects
-                .select_related("school", "campus", "created_by")
-                .filter(pk=kwargs["pk"])
-                .filter(
-                    Q(institution_id=get_institution(request))
-                    | Q(institution__isnull=True)
-                )
-                .first()
-            )
-        except Event.DoesNotExist:
+        event = visible_event_queryset(request).filter(pk=kwargs["pk"]).first()
+        if event is None:
             return Response(
                 {"detail": "Event not found."},
                 status=status.HTTP_404_NOT_FOUND,
