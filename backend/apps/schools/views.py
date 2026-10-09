@@ -976,6 +976,18 @@ def section_queryset(request):
     )
 
 
+def _deactivate_other_active_years(school, keep_pk):
+    """Ensure at most one AcademicYear stays 'active' per school.
+
+    Mirrors the invariant AcademicYearActionView.activate() already
+    enforces, applied here too so plain create/update can't bypass it.
+    """
+    AcademicYear.objects.filter(
+        school=school,
+        status="active",
+    ).exclude(pk=keep_pk).update(status="completed")
+
+
 class AcademicYearListView(NoPaginationMixin, generics.ListCreateAPIView):
     serializer_class = AcademicYearSerializer
     permission_classes = [HasActiveInstitution, IsAdminOrReadOnly]
@@ -986,7 +998,10 @@ class AcademicYearListView(NoPaginationMixin, generics.ListCreateAPIView):
         ).select_related("school").order_by("-start_date")
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.institution)
+        with transaction.atomic():
+            instance = serializer.save(school=self.request.institution)
+            if instance.status == "active":
+                _deactivate_other_active_years(instance.school, instance.pk)
 
 
 class AcademicYearDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -997,6 +1012,12 @@ class AcademicYearDetailView(generics.RetrieveUpdateDestroyAPIView):
         return AcademicYear.objects.filter(
             school=self.request.institution
         ).select_related("school")
+
+    def perform_update(self, serializer):
+        with transaction.atomic():
+            instance = serializer.save()
+            if instance.status == "active":
+                _deactivate_other_active_years(instance.school, instance.pk)
 
 
 class AcademicYearActionView(APIView):
