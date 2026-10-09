@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { Upload, FileDown, CheckCircle2, AlertTriangle, FileSpreadsheet } from "lucide-react";
 import { PageHeader, PanelHeader, StateArea } from "./ui";
 import { apiFetch, apiDownload, authHeaders } from "../api";
+import { hasImportableRows } from "../importPreview";
 
 const IMPORT_TYPES = [
   {
@@ -62,7 +63,7 @@ export default function DataImportPage() {
   };
 
   const runCommit = () => {
-    if (!file) return;
+    if (!file || previewing || committing || !hasImportableRows(preview)) return;
 
     setCommitting(true);
     setError("");
@@ -171,8 +172,8 @@ export default function DataImportPage() {
               disabled={
                 !file ||
                 committing ||
-                !preview ||
-                (preview && preview.total_rows === 0)
+                previewing ||
+                !hasImportableRows(preview)
               }
             >
               <CheckCircle2 size={15} />
@@ -198,7 +199,7 @@ export default function DataImportPage() {
                       <AlertTriangle size={18} color="#d97706" />
                     )}
                   </strong>
-                  <span>{preview.can_commit ? "Ready to import" : "Fix errors first"}</span>
+                  <span>{preview.can_commit ? "Ready to import" : hasImportableRows(preview) ? "Only valid rows will be imported" : "Fix errors first"}</span>
                 </div>
               </div>
 
