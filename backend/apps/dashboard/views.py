@@ -25,6 +25,7 @@ from apps.finance.models import Invoice, Payment
 from apps.exams.models import Exam, StudentResult
 from apps.schools.models import Campus, Class, Section
 from apps.students.models import Student, Enrollment
+from apps.students.querysets import school_scoped_students
 from apps.teachers.models import Teacher
 
 
@@ -42,13 +43,12 @@ def _institution_overview_counts(request):
             "sections": 0,
             "enrollments": 0,
         }
-    students = Student.objects.filter(institution=institution)
+    students = school_scoped_students(Student.objects.all(), request)
     teachers = Teacher.objects.filter(institution=institution)
     campuses = Campus.objects.filter(school=institution)
     classes = Class.objects.filter(unit__campus__school=institution)
     sections = Section.objects.filter(class_obj__unit__campus__school=institution)
     enrollments = Enrollment.objects.filter(academic_year__school=institution)
-    students = apply_campus_scope(students, request, "primary_campus_id", institution_field=None)
     teachers = apply_campus_scope(teachers, request, "primary_campus_id", institution_field=None)
     campuses = apply_campus_scope(campuses, request, "id", institution_field=None)
     classes = apply_campus_scope(classes, request, "unit__campus_id", institution_field=None)

@@ -18,6 +18,7 @@ from decimal import Decimal
 
 from apps.accounts.access import apply_campus_scope, assert_campus_allowed, campus_access, get_institution
 from apps.accounts.middleware import require_active_school
+from apps.students.querysets import school_scoped_students
 from apps.accounts.permissions import (
     IsAdminOrReadOnly,
     IsAdminRole,
@@ -607,10 +608,7 @@ class StudentListCreateView(generics.ListCreateAPIView):
         # Institution-tagged students are always visible; legacy records
         # without a school tag are resolved through their enrollments.
         # Never expose a student of another active school.
-        queryset = queryset.filter(
-            Q(institution=institution)
-            | Q(enrollments__academic_year__school=institution)
-        )
+        queryset = school_scoped_students(queryset, self.request)
 
         user = self.request.user
 
@@ -640,20 +638,6 @@ class StudentListCreateView(generics.ListCreateAPIView):
 
         if gender:
             queryset = queryset.filter(gender=gender)
-
-        access = campus_access(self.request)
-
-        if not access["global"]:
-            allowed = access["allowed_ids"]
-            queryset = queryset.filter(
-                enrollments__campus_id__in=allowed or [-1],
-                enrollments__status="active",
-            )
-        elif access["requested"]:
-            queryset = queryset.filter(
-                enrollments__campus_id=access["requested"],
-                enrollments__status="active",
-            )
 
         section = self.request.query_params.get("section")
 
