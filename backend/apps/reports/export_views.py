@@ -365,11 +365,11 @@ def _get_nested(obj, path):
         if current is None:
             return ""
         current = getattr(current, part, None)
-        if callable(current):
-            current = current()
         if hasattr(current, "all"):
             remaining = "__".join(parts[index + 1:])
             return "; ".join(str(_get_nested(item, remaining)) for item in current.all())
+        if callable(current):
+            current = current()
     return current if current is not None else ""
 
 
