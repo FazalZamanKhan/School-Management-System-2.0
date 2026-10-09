@@ -145,6 +145,27 @@ class PublicAdmissionApplyView(APIView):
                 class_obj=class_obj,
             ).first()
 
+        guardian_phone = str(data.get("guardian_phone") or "").strip()
+        duplicate = AdmissionApplication.objects.filter(
+            institution=campus.school,
+            campus=campus,
+            academic_year=year,
+            first_name__iexact=str(data.get("first_name")).strip(),
+            middle_name__iexact=str(data.get("middle_name") or "").strip(),
+            last_name__iexact=str(data.get("last_name")).strip(),
+            date_of_birth=data.get("date_of_birth") or None,
+            review_notes__icontains=f"({guardian_phone})",
+        ).exclude(status__in=("rejected", "withdrawn")).first()
+
+        if duplicate:
+            return Response(
+                {
+                    "detail": "A matching application is already on file.",
+                    "application_number": duplicate.application_number,
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
         application_number = (
             f"PUB-{timezone.localdate().year}-"
             f"{AdmissionApplication.objects.count() + 1:05d}"
@@ -165,9 +186,9 @@ class PublicAdmissionApplyView(APIView):
                 academic_year=year,
                 class_obj=class_obj,
                 section=section,
-                review_notes=(
-                    f"Guardian: {data.get('guardian_name')} "
-                    f"({data.get('guardian_phone')})"
+            review_notes=(
+                f"Guardian: {data.get('guardian_name')} "
+                f"({guardian_phone})"
                 ),
                 status="submitted",
                 submitted_at=timezone.now(),
