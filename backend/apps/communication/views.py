@@ -191,6 +191,9 @@ def scoped_announcement_queryset(request):
     elif is_student(user):
         role = "student"
         class_ids = student_class_ids(user)
+    elif user.has_role("accountant", institution=institution):
+        role = "accountant"
+        class_ids = []
     else:
         return queryset.none()
 
