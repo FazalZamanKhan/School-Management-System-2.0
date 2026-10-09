@@ -69,12 +69,8 @@ def executive_dashboard(request):
     campus_list = list(campuses.order_by("name"))
     campus_ids = [c.id for c in campus_list]
 
-    students = apply_campus_scope(
-        Student.objects.all(),
-        request,
-        campus_field="primary_campus_id",
-        institution_field="institution_id",
-    )
+    from apps.students.querysets import school_scoped_students
+    students = school_scoped_students(Student.objects.all(), request)
 
     enrollments = apply_campus_scope(
         Enrollment.objects.all(),
