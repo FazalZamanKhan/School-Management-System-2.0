@@ -305,6 +305,8 @@ class ReportTemplate(models.Model):
         help_text="Font family, colors, borders, alternating row colors",
     )
     watermark = models.CharField(max_length=200, blank=True)
+    filters = models.JSONField(default=dict, blank=True)
+    columns = models.JSONField(default=list, blank=True)
 
     is_default = models.BooleanField(default=False)
     is_system = models.BooleanField(default=False)
