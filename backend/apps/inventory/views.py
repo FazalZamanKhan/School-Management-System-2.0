@@ -47,6 +47,8 @@ def _active_institution(request):
 
 def _assert_campus_allowed(user, campus):
     """Campus access assertion that accepts either an id or a model instance."""
+    if campus is None:
+        return
     assert_campus_allowed(user, getattr(campus, "pk", campus))
 
 
