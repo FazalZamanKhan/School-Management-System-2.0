@@ -369,8 +369,9 @@ export default function HostelPage() {
                   >
                     <option value="">Room...</option>
                     {roomOptions.map((room) => (
-                      <option key={room.id} value={room.id}>
-                        {room.hostel_name || `Hostel #${room.hostel}`} - {room.room_number}
+                      <option key={room.id} value={room.id} disabled={room.is_full}>
+                        {room.hostel_name || `Hostel #${room.hostel}`} - {room.room_number}{" "}
+                        {room.is_full ? "(Full)" : `(${room.occupied || 0}/${room.capacity})`}
                       </option>
                     ))}
                   </select>

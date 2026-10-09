@@ -72,3 +72,10 @@ class AllocationSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["created_at"]
+
+    def validate(self, attrs):
+        room = attrs.get("room")
+        status_val = attrs.get("status", "active")
+        if room and status_val == "active" and room.is_full:
+            raise serializers.ValidationError({"room": "This room is already full."})
+        return attrs
