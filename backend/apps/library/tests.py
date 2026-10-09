@@ -1,9 +1,9 @@
-from django.test import TestCase
+﻿from django.test import TestCase
 
 from apps.accounts.models import Role, StaffProfile
 from apps.accounts.test_access import make_request, make_user
 from apps.library.models import Book
-from apps.library.views import BookListView
+from apps.library.views import BookListView, LibraryMembersView
 from apps.schools.models import Campus, School
 
 
@@ -48,3 +48,23 @@ class BookCampusIsolationTests(TestCase):
         self.assertIn(own, qs)
         self.assertIn(school_wide, qs)
         self.assertFalse(qs.filter(isbn="LIB-TEST-002").exists())
+
+
+class LibraryMembersViewTests(TestCase):
+    """Regression: GET /api/library/members/ must return a valid response
+    instead of crashing. It previously had no serializer_class, so DRF's
+    ListAPIView raised when trying to serialize the (empty) queryset,
+    producing an HTTP 500.
+    """
+
+    def setUp(self):
+        self.school = School.objects.create(name="Library School")
+        self.user = make_user("librarian-x", Role.LIBRARIAN, self.school)
+
+    def test_members_endpoint_returns_200_instead_of_500(self):
+        request = make_request(self.user, path="/api/library/members/")
+        response = LibraryMembersView.as_view()(request._request)
+        response.render()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["results"], [])

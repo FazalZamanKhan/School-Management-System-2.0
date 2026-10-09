@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from apps.students.models import Student
+
 from .models import Book, BookCopy, BookIssue, BookReservation
 
 
@@ -206,3 +208,17 @@ class BookReservationCreateSerializer(serializers.ModelSerializer):
 
         validated_data["status"] = "pending"
         return super().create(validated_data)
+
+
+class LibraryMemberSerializer(serializers.ModelSerializer):
+    """Minimal identity fields for a library member listing.
+
+    Deliberately narrow: this only exposes what's needed to identify a
+    borrower (matches the fields already used for this purpose elsewhere,
+    e.g. BookIssueSerializer.student_name / admission_number), not the
+    full Student record (guardians, documents, enrollments, etc.).
+    """
+
+    class Meta:
+        model = Student
+        fields = ["id", "full_name", "admission_number"]

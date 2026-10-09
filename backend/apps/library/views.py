@@ -6,9 +6,10 @@ from rest_framework.views import APIView
 
 from apps.accounts.permissions import IsAccountantRole, IsLibrarianRole
 from apps.accounts.access import apply_campus_scope
+from apps.students.models import Student
 
 from .models import Book, BookCopy, BookIssue, BookReservation
-from .serializers import BookCopySerializer, BookIssueSerializer, BookSerializer, BookReservationSerializer, BookReservationCreateSerializer
+from .serializers import BookCopySerializer, BookIssueSerializer, BookSerializer, BookReservationSerializer, BookReservationCreateSerializer, LibraryMemberSerializer
 
 
 class BookListView(generics.ListCreateAPIView):
@@ -385,21 +386,17 @@ class LibraryReportsView(APIView):
 
 
 class LibraryMembersView(generics.ListAPIView):
-    """List library members (students and teachers who can borrow books)."""
+    """List library members (students and teachers who can borrow books).
+
+    Note: currently lists students only (returns an empty queryset by
+    default, same as before this fix). Including teachers as members
+    would require merging two different model querysets into one
+    response, which is a larger design change left for a follow-up.
+    """
+    serializer_class = LibraryMemberSerializer
     permission_classes = [IsLibrarianRole]
 
     def get_queryset(self):
-        from apps.students.models import Student
-        from apps.teachers.models import Teacher
-        from django.db.models import Q
-
-        # Get students and teachers who have active enrollments/assignments
-        from apps.students.models import Enrollment
-        from apps.teachers.models import TeacherAssignment
-
-        # This would need to be customized based on the actual models
-        # For now, return empty queryset - can be expanded based on actual requirements
-        from apps.students.models import Student
         return Student.objects.none()
 
 
