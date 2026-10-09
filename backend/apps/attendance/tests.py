@@ -1,8 +1,11 @@
 from datetime import date
 
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.test import TestCase
+from rest_framework.test import APIClient
 
+from apps.accounts.models import InstitutionMembership, Role, RoleAssignment
 from apps.schools.models import AcademicUnit, AcademicYear, Campus, Class, Section, School
 from apps.students.models import Enrollment, Guardian, Student
 
@@ -75,6 +78,7 @@ class AttendanceModelTests(TestCase):
 
 		with self.assertRaises(ValidationError):
 			Attendance.objects.create(**attendance_data)
+
 
 	def test_all_supported_statuses_are_valid(self):
 		from apps.attendance.models import Attendance as A
@@ -179,6 +183,86 @@ class AttendanceModelTests(TestCase):
 		with self.assertRaises(ValidationError):
 			attendance.full_clean()
 
+
+class AttendanceBulkMarkApiTests(TestCase):
+	def setUp(self):
+		self.school = School.objects.create(name="Bulk Attendance School")
+		self.campus = Campus.objects.create(school=self.school, name="Main Campus")
+		unit = AcademicUnit.objects.create(campus=self.campus, name="Primary")
+		self.class_obj = Class.objects.create(unit=unit, name="Grade 1")
+		self.section = Section.objects.create(class_obj=self.class_obj, name="A")
+		self.year = AcademicYear.objects.create(
+			school=self.school,
+			name="2026-2027",
+			start_date=date(2026, 1, 1),
+			end_date=date(2027, 12, 31),
+		)
+		guardian = Guardian.objects.create(
+			name="Test Parent",
+			relationship="Parent",
+			phone="03000000000",
+		)
+		self.student = Student.objects.create(
+			institution=self.school,
+			admission_number="ADM-BULK-001",
+			first_name="Test",
+			gender="male",
+			guardian=guardian,
+		)
+		self.enrollment = Enrollment.objects.create(
+			student=self.student,
+			academic_year=self.year,
+			campus=self.campus,
+			class_obj=self.class_obj,
+			section=self.section,
+		)
+		user = get_user_model().objects.create_user(
+			username="attendance-admin",
+			email="attendance-admin@test.edu",
+			password="TestPass123!",
+		)
+		membership = InstitutionMembership.objects.create(
+			user=user,
+			institution=self.school,
+		)
+		RoleAssignment.objects.create(membership=membership, role=Role.ADMIN)
+		self.client = APIClient()
+		self.client.force_authenticate(user=user)
+
+	def test_bulk_mark_accepts_iso_date_string(self):
+		response = self.client.post(
+			"/api/attendance/bulk/",
+			{
+				"academic_year": self.year.pk,
+				"campus": self.campus.pk,
+				"class": self.class_obj.pk,
+				"section": self.section.pk,
+				"date": date.today().isoformat(),
+				"records": [{"student": self.student.pk, "status": "present"}],
+			},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.data["created"], 1)
+		self.assertEqual(Attendance.objects.count(), 1)
+
+	def test_bulk_mark_returns_validation_error_for_invalid_date(self):
+		response = self.client.post(
+			"/api/attendance/bulk/",
+			{
+				"academic_year": self.year.pk,
+				"campus": self.campus.pk,
+				"class": self.class_obj.pk,
+				"section": self.section.pk,
+				"date": "not-a-date",
+				"records": [{"student": self.student.pk, "status": "present"}],
+			},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 400)
+		self.assertIn("date", response.data)
 
 class AttendanceCorrectionModelTests(TestCase):
 	def setUp(self):
