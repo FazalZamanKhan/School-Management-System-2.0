@@ -91,7 +91,7 @@ def owned_queryset(model, request):
 
 # Original Employee Views (from original implementation)
 class EmployeeListCreateView(generics.ListCreateAPIView):
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsAccountantRole]
     serializer_class = EmployeeSerializer
 
     def get_queryset(self):
@@ -154,7 +154,7 @@ class EmployeeListCreateView(generics.ListCreateAPIView):
 
 
 class EmployeeDetailView(generics.RetrieveAPIView):
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsAccountantRole]
     serializer_class = EmployeeSerializer
 
     def get_queryset(self):
@@ -195,7 +195,7 @@ class EmployeeDocumentDetailView(generics.RetrieveDestroyAPIView):
 
 
 class EmployeeWorkloadListCreateView(generics.ListCreateAPIView):
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsAccountantRole]
     serializer_class = WorkloadAssignmentSerializer
 
     def get_queryset(self):
@@ -207,7 +207,7 @@ class EmployeeWorkloadListCreateView(generics.ListCreateAPIView):
 
 
 class EmployeeReviewListCreateView(generics.ListCreateAPIView):
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsAccountantRole]
     serializer_class = PerformanceReviewSerializer
 
     def get_queryset(self):
@@ -219,7 +219,7 @@ class EmployeeReviewListCreateView(generics.ListCreateAPIView):
 
 
 class EmploymentEventListView(generics.ListAPIView):
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsAccountantRole]
     serializer_class = EmploymentEventSerializer
 
     def get_queryset(self):
@@ -1195,7 +1195,7 @@ class InterviewActionView(APIView):
 
 # Updated Employee Views with Detail Serializer
 class EmployeeDetailView(generics.RetrieveAPIView):
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsAccountantRole]
     serializer_class = EmployeeDetailSerializer
 
     def get_queryset(self):
