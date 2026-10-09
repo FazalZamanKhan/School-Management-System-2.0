@@ -251,7 +251,7 @@ export default function AssignmentsPage() {
 
   const sectionsForClass = (classId) =>
     options.sections.filter(
-      (section) => !classId || section.class_obj === classId
+      (section) => !classId || Number(section.class_obj) === Number(classId)
     );
 
   const classById = (classId) =>
