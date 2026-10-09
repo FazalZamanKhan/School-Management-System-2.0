@@ -333,7 +333,9 @@ def _validate_teacher_row(row, institution, seen_numbers):
 
     if experience:
         try:
-            clean["experience_years"] = max(0, int(experience))
+            clean["experience_years"] = int(experience)
+            if clean["experience_years"] < 0:
+                errors.append("experience_years must be zero or greater.")
         except ValueError:
             errors.append(f"experience_years must be a number (got '{experience}')")
             clean["experience_years"] = None
