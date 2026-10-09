@@ -215,6 +215,7 @@ export default function VisitorsPage() {
                     <th>Purpose</th>
                     <th>Meeting Party</th>
                     <th>Checked In</th>
+                    <th>Checked Out</th>
                     <th>Status</th>
                     <th className="table-action"></th>
                   </tr>
@@ -231,6 +232,7 @@ export default function VisitorsPage() {
                       <td>{visitor.purpose || "—"}</td>
                       <td>{visitor.meeting_party || "—"}</td>
                       <td>{visitor.check_in ? new Date(visitor.check_in).toLocaleString() : "—"}</td>
+                      <td>{visitor.check_out ? new Date(visitor.check_out).toLocaleString() : "—"}</td>
                       <td>
                         <StatusBadge status={visitor.status} label={VISITOR_STATUS_LABELS[visitor.status] || visitor.status} />
                       </td>
