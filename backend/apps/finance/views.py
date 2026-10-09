@@ -1559,6 +1559,7 @@ class FeeAssignmentPreviewView(APIView):
 
     def post(self, request):
         from apps.students.models import Enrollment
+        from apps.schools.models import AcademicYear, Campus, Class
         from .services import FeeInvoiceService
 
         academic_year_id = request.data.get("academic_year")
@@ -1575,9 +1576,9 @@ class FeeAssignmentPreviewView(APIView):
         from apps.accounts.access import assert_campus_allowed
         assert_campus_allowed(request.user, campus_id, request=request)
 
-        academic_year = get_object_or_404(AcademicYear, pk=academic_year_id)
-        campus = get_object_or_404(Campus, pk=campus_id)
-        class_obj = get_object_or_404(Class, pk=class_obj_id)
+        academic_year = get_object_or_404(AcademicYear, pk=academic_year_id, school=request.institution)
+        campus = get_object_or_404(Campus, pk=campus_id, school=request.institution)
+        class_obj = get_object_or_404(Class, pk=class_obj_id, unit__campus=campus)
 
         service = FeeInvoiceService(request.institution, academic_year)
 
