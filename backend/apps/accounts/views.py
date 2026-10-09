@@ -1834,9 +1834,13 @@ class StaffLeaveListCreateView(generics.ListCreateAPIView):
             staff = getattr(user, "staff_profile", None)
 
         if staff is None:
-            raise NotFound(
-                "No staff profile is linked to this account, and no staff "
-                "member was selected."
+            raise serializers.ValidationError(
+                {
+                    "staff": (
+                        "Please select a staff member, or link a staff "
+                        "profile to your account."
+                    )
+                }
             )
 
         if institution is not None and staff.institution is not None:
