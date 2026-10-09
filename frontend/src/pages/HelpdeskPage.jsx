@@ -44,6 +44,7 @@ const EMPTY_FORM = {
   subject: "",
   description: "",
   priority: "medium",
+  assignee: "",
 };
 
 
@@ -54,6 +55,7 @@ export default function HelpdeskPage() {
   const [tickets, setTickets] = useState([]);
   const [categories, setCategories] = useState([]);
   const [campuses, setCampuses] = useState([]);
+  const [staffMembers, setStaffMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -103,6 +105,11 @@ export default function HelpdeskPage() {
       .then((r) => (r.ok ? r.json() : []))
       .then((data) => setCampuses(Array.isArray(data) ? data : []))
       .catch(() => {});
+
+    fetch("/api/staff/?page_size=500", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => setStaffMembers(Array.isArray(data) ? data : data.results || []))
+      .catch(() => {});
   }, []);
 
   const applyFilters = (evt) => {
@@ -135,6 +142,7 @@ export default function HelpdeskPage() {
       subject: ticket.subject || "",
       description: ticket.description || "",
       priority: ticket.priority || "medium",
+      assignee: ticket.assignee ? String(ticket.assignee) : "",
     });
     setShowForm(true);
   };
@@ -155,6 +163,7 @@ export default function HelpdeskPage() {
     };
     if (form.category) payload.category = Number(form.category);
     if (form.campus) payload.campus = Number(form.campus);
+    payload.assignee = form.assignee ? Number(form.assignee) : null;
 
     apiFetch(editingTicket ? `${API_URL}${editingTicket.id}/` : API_URL, {
       method: editingTicket ? "PATCH" : "POST",
@@ -414,6 +423,18 @@ export default function HelpdeskPage() {
                       ))}
                     </select>
                   </label>
+
+                  <label>
+                    Assignee
+                    <select name="assignee" value={form.assignee} onChange={handleChange}>
+                      <option value="">Unassigned</option>
+                      {staffMembers.map((staff) => (
+                        <option key={staff.id} value={staff.user || staff.user_id || staff.id}>
+                          {staff.full_name || `${staff.first_name} ${staff.last_name}`.trim()} ({staff.designation || "Staff"})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
                 {formError && <div className="state-card error"><span>{formError}</span></div>}
               </div>
@@ -455,6 +476,33 @@ export default function HelpdeskPage() {
                   <p className="ticket-meta-line">
                     Priority: {active.priority} · Reporter: {active.created_by_name} · Assignee: {active.assignee_name || "Unassigned"}
                   </p>
+                  {canManage && (
+                    <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                      <label style={{ margin: 0, fontWeight: 600, fontSize: "0.85rem" }}>Assign Staff:</label>
+                      <select
+                        style={{ maxWidth: 260, fontSize: "0.85rem", padding: "4px 8px" }}
+                        value={active.assignee ? String(active.assignee) : ""}
+                        onChange={(e) => {
+                          const newAssignee = e.target.value ? Number(e.target.value) : null;
+                          apiFetch(`${API_URL}${active.id}/`, {
+                            method: "PATCH",
+                            headers: jsonHeaders(),
+                            body: JSON.stringify({ assignee: newAssignee }),
+                          }).then(() => {
+                            refreshTicket();
+                            loadTickets();
+                          });
+                        }}
+                      >
+                        <option value="">Unassigned</option>
+                        {staffMembers.map((s) => (
+                          <option key={s.id} value={s.user || s.user_id || s.id}>
+                            {s.full_name || `${s.first_name} ${s.last_name}`.trim()} ({s.designation || "Staff"})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   {active.resolution_notes && (
                     <p className="ticket-meta-line"><strong>Resolution:</strong> {active.resolution_notes}</p>
                   )}
