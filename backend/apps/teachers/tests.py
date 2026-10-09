@@ -270,6 +270,24 @@ class TeacherAPIRegressionTests(TestCase):
         _, results = self._list(self.admin_a, self.school_a)
         self.assertNotIn(teacher_id, [t["id"] for t in results])
 
+    def test_list_fails_closed_for_role_with_no_teacher_profile(self):
+        """Regression: a non-manager user with no Teacher profile (e.g. a
+        student) must see an empty list, not the full institution-wide
+        teacher directory. Previously the self-only filter was skipped
+        entirely whenever get_teacher_profile() returned None, exposing
+        every teacher's record (including internal fields) to any such
+        account.
+        """
+        response = self._create(self.admin_a, self.school_a)
+        self.assertEqual(response.status_code, 201)
+        teacher_id = json.loads(response.content)["id"]
+
+        no_profile_user = make_user("student_x", "student", self.school_a)
+
+        _, results = self._list(no_profile_user, self.school_a)
+        self.assertEqual(results, [])
+        self.assertNotIn(teacher_id, [t["id"] for t in results])
+
     def test_detail_fails_closed_without_active_institution(self):
         response = self._create(self.admin_a, self.school_a)
         self.assertEqual(response.status_code, 201)
