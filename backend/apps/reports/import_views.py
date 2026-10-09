@@ -353,6 +353,13 @@ def _validate_teacher_row(row, institution, seen_numbers):
     return clean, errors
 
 
+def _teacher_exists(institution, employee_number):
+    from apps.teachers.models import Teacher
+    return Teacher.objects.all_with_deleted().filter(
+        institution=institution, employee_number=employee_number,
+    ).exists()
+
+
 def _create_teacher(clean, institution):
     from apps.teachers.models import Teacher
 
@@ -530,6 +537,9 @@ class ImportPreviewView(APIView):
                     seen_teachers,
                 )
 
+                if clean.get("employee_number") and _teacher_exists(institution, clean["employee_number"]):
+                    row_errors.append(f"employee_number '{clean['employee_number']}' already exists.")
+
             if row_errors:
                 errors.append({"row": index, "errors": row_errors})
             else:
@@ -623,6 +633,9 @@ class ImportCommitView(APIView):
 
                     to_create.append(clean)
                 else:
+                    if _teacher_exists(institution, clean["employee_number"]):
+                        skipped_teachers += 1
+                        continue
                     to_create.append(clean)
 
             with transaction.atomic():
@@ -640,7 +653,15 @@ class ImportCommitView(APIView):
                         if enrollment_created:
                             enrollments_created += 1
                     else:
-                        _create_teacher(clean, institution)
+                        from django.db import IntegrityError
+                        try:
+                            with transaction.atomic():
+                                _create_teacher(clean, institution)
+                        except IntegrityError:
+                            if _teacher_exists(institution, clean["employee_number"]):
+                                skipped_teachers += 1
+                                continue
+                            raise
                         created_teachers += 1
 
             if key == "students":
