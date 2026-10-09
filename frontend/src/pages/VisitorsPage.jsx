@@ -90,6 +90,13 @@ export default function VisitorsPage() {
       setFormError("Please choose a campus.");
       return;
     }
+    if (form.phone) {
+      const cleaned = form.phone.replace(/[\s\-\(\)\+]/g, "");
+      if (!/\d/.test(form.phone) || cleaned.length < 5 || !/^[+0-9\s\-()]+$/.test(form.phone)) {
+        setFormError("Please enter a valid phone number with numbers only.");
+        return;
+      }
+    }
     setSaving(true);
     setFormError("");
 

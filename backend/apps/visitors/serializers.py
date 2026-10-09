@@ -51,3 +51,11 @@ class VisitorSerializer(serializers.ModelSerializer):
         if value is None:
             raise serializers.ValidationError("Campus is required.")
         return value
+
+    def validate_phone(self, value):
+        if value:
+            import re
+            cleaned = re.sub(r'[\s\-\(\)\+]', '', value)
+            if not re.search(r'\d', value) or len(cleaned) < 5 or not re.match(r'^[+0-9\s\-()]+$', value):
+                raise serializers.ValidationError("Enter a valid phone number.")
+        return value
