@@ -1,4 +1,4 @@
-import { useEffect, useState, createElement } from "react";
+import { useCallback, useEffect, useState, createElement } from "react";
 import { X, Plus, Trash2, Edit, AlertTriangle } from "lucide-react";
 import { apiFetch } from "../api";
 import { useApiList } from "./useApiList";
@@ -49,7 +49,9 @@ export default function DisciplinePage() {
   } = useApiList(API_URL);
 
   const applyFilters = (pageNumber = 1) => {
-    refresh(buildParams(pageNumber));
+    const params = buildParams(pageNumber);
+    refresh(params);
+    load(params);
   };
 
   const buildParams = (pageNumber = 1) => {
@@ -59,7 +61,7 @@ export default function DisciplinePage() {
     return params;
   };
 
-  const loadStudents = () => {
+  const loadStudents = useCallback(() => {
     fetch("/api/students/?page_size=1000", {
       credentials: "include",
     })
@@ -73,16 +75,16 @@ export default function DisciplinePage() {
         setStudents(list);
       })
       .catch(() => {});
-  };
+  }, []);
 
-  const loadCampuses = () => {
+  const loadCampuses = useCallback(() => {
     fetch("/api/schools/campuses/", {
       credentials: "include",
     })
       .then((response) => (response.ok ? response.json() : []))
       .then((data) => setCampuses(Array.isArray(data) ? data : []))
       .catch(() => {});
-  };
+  }, []);
 
   const openCreate = () => {
     setEditing(null);
@@ -198,28 +200,34 @@ export default function DisciplinePage() {
     }
   };
 
-  const load = () => {
+  const load = useCallback((params) => {
     setLoading(true);
     setError("");
+    const query = params || new URLSearchParams({ page: "1", page_size: "50" });
 
-    const toListOrEmpty = (response) =>
-      response.ok ? response.json() : [];
-
-    fetch(API_URL, { credentials: "include" })
-      .then(toListOrEmpty)
+    fetch(`${API_URL}?${query.toString()}`, { credentials: "include" })
+      .then((response) => {
+        if (!response.ok) throw new Error("Failed to load incidents.");
+        return response.json();
+      })
       .then((json) => {
-        setIncidents(json.results || json);
+        const rows = Array.isArray(json)
+          ? json
+          : Array.isArray(json?.results)
+            ? json.results
+            : [];
+        setIncidents(rows);
         setLoading(false);
       })
-      .catch(() => setError("Failed to load incidents."))
+      .catch((err) => setError(err.message || "Failed to load incidents."))
       .finally(() => setLoading(false));
-  };
+  }, []);
 
   useEffect(() => {
     load();
     loadStudents();
     loadCampuses();
-  }, []);
+  }, [load, loadStudents, loadCampuses]);
 
   // Build table rows using createElement to avoid rolldown JSX parsing issues
   const buildTableRows = () => {
